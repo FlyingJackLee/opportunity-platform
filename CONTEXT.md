@@ -17,8 +17,8 @@ _Avoid_: 把 Opportunity 等同于一整个 Event（一个 Event 可能同时对
 _Avoid_: Opportunity Result（已废弃的早期草稿用词，指代对象与 ExpertResult/FinalResult 之一含混不清，不再使用）
 
 **FinalResult**：
-`finalize_result` 节点的输出，在 ExpertResult 基础上叠加了 Code 计算出的 `score`/`level`/`confidence` 以及 `summary`，是一次 ExpertRun 的最终、完整判断结果。**score/level 按每个 Department 分别计算并挂在各自的 department 条目上**（因为一个 Department 就是一条独立 Opportunity）；`FinalResult` 顶层的 `score`/`level` 是"这次 Run 里所有部门中的最高档"，只用于列表排序/展示，真正驱动某个部门是否推送、往哪推的是这个部门自己的 score/level。
-_Avoid_: Expert Result（与打分/审核前的 ExpertResult 混淆时不要用这个说法指代最终结果）, Opportunity Result（已废弃）；把顶层 score/level 当成推送依据（实际依据是每个部门自己的 score/level）
+`finalize_result` 节点的输出，在 ExpertResult 基础上叠加了 Code 计算出的 `score`/`level`/`confidence` 以及 `summary`，是一次 ExpertRun 的最终、完整判断结果。**score/level/confidence 按每个 Department 分别计算并挂在各自的 department 条目上**（因为一个 Department 就是一条独立 Opportunity）；`FinalResult` 顶层的 `score`/`level`/`confidence` 是"分数最高的那一个 Department 分支的完整三元组"——三个字段来自**同一个**部门，不是三个字段分别独立取各自的最高值——只用于列表排序/展示，真正驱动某个部门是否推送、往哪推的是这个部门自己的 score/level/confidence。
+_Avoid_: Expert Result（与打分/审核前的 ExpertResult 混淆时不要用这个说法指代最终结果）, Opportunity Result（已废弃）；把顶层 score/level/confidence 当成推送依据（实际依据是每个部门自己的三元组）；把顶层三元组理解成三个字段分别独立取最高（实际是同一部门的一组值）
 
 **Need Maturity**：
 每个 need（`ExpertResult.needs[]` 中的一项）的成熟度分类：`CONCEPT / POTENTIAL / EXPLICIT / PROJECT / PROCUREMENT`，由 `expert_judge` 节点（LLM）逐条判断，是唯一描述"这个具体需求发展到什么阶段"的字段。
@@ -35,5 +35,5 @@ _Avoid_: 部门负责人 / 组织负责人（容易被误解为客户单位内�
 `event`/`organization`/`knowledge_chunk`/`collector_source` 等表里的 `industry`/`region` 字段必须取自一份受控词表（一期以代码常量/枚举维护，不必建数据库表），而不是自由文本，保证跨表打标能精确匹配（避免"重庆"/"重庆市"/"渝"互相匹配不上）。
 
 **Score Level**：
-`FinalResult` 中每个 Department 各自的分档：`A(≥80) / B(65~79) / C(50~64) / WATCH(<50)`，由 Code 针对该部门单独按加权总分（§47 评分模型）计算——`Organization Match`/`Department Match` 用该部门自身的匹配置信度，`Need Clarity`/`Company Capability` 用挂在该部门下的 related Needs，`Event Relevance`/`Project Signal`/`Procurement Signal` 全部门共用同一个 event 级别的值。驱动**该部门自己**的 `should_push` 决策；`expert_run`/`FinalResult` 顶层保留的 score/level 只是所有部门里的最高档，仅用于列表排序展示。
-_Avoid_: 不要与 Need Maturity 混淆——Level 是分数分档，不代表需求发展到什么阶段；不要把顶层汇总 level 当成某个具体部门的推送依据。
+`FinalResult` 中每个 Department 各自的分档：`A(≥80) / B(65~79) / C(50~64) / WATCH(<50)`，由 Code 针对该部门单独按加权总分（§47 评分模型）计算——`Organization Match`/`Department Match` 用该部门自身的匹配置信度，`Need Clarity`/`Company Capability` 用挂在该部门下的 related Needs/related Capabilities，`Event Relevance`/`Project Signal`/`Procurement Signal` 全部门共用同一个 event 级别的值。驱动**该部门自己**的 `should_push` 决策；`expert_run`/`FinalResult` 顶层保留的 score/level（连同 confidence）是所有部门里分数最高那一个的完整三元组，仅用于列表排序展示。
+_Avoid_: 不要与 Need Maturity 混淆——Level 是分数分档，不代表需求发展到什么阶段；不要把顶层汇总 level 当成某个具体部门的推送依据；不要把顶层三元组理解成三个字段分别独立取最高。

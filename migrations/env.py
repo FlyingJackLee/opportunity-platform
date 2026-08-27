@@ -6,7 +6,16 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
-from app.models import event  # noqa: F401 -- registers Event on Base.metadata
+from app.models import (  # noqa: F401
+    capability,
+    department,
+    event,
+    expert_run,
+    knowledge,
+    organization,
+    prompt_template,
+    score_config,
+)
 from app.models.base import Base
 
 config = context.config

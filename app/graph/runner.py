@@ -1,15 +1,22 @@
+import uuid
 from typing import Any
 
 import structlog
 from langgraph.graph.state import CompiledStateGraph
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.logging import bind_run_context
+from app.models.event import EventStatus
+from app.repositories import event_repository, expert_run_repository
 
 logger = structlog.get_logger()
 
 
 async def run_graph(
-    graph: CompiledStateGraph, event: dict[str, Any], run_id: str
+    graph: CompiledStateGraph,
+    event: dict[str, Any],
+    run_id: str,
+    session_factory: async_sessionmaker,
 ) -> None:
     """Invokes the graph for one run. Catches anything a node lets escape so
     GET /runs/{run_id} always has a queryable terminal state, even on an
@@ -27,3 +34,8 @@ async def run_graph(
         # what a node raises; narrowing it would defeat the purpose.
         logger.error("graph_run_failed", error=str(exc))
         await graph.aupdate_state(config, {"status": "FAILED", "error": str(exc)})
+        async with session_factory() as session:
+            await expert_run_repository.fail_run(session, uuid.UUID(run_id), str(exc))
+            await event_repository.set_event_status(
+                session, uuid.UUID(event["id"]), EventStatus.FAILED
+            )

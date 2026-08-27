@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     llm_api_key: str | None = None
     llm_model: str = "gpt-4o-mini"
     llm_base_url: str = "https://api.openai.com/v1"
+    embedding_dimension: int = 1536
     log_level: str = "INFO"
     app_env: Literal["local", "test", "production"] = "local"
 

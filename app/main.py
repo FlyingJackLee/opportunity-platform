@@ -17,7 +17,7 @@ def build_llm_gateway(settings: Settings) -> LLMGateway:
     if settings.llm_provider == "stub":
         from app.llm.providers.stub import StubLLMGateway
 
-        return StubLLMGateway()
+        return StubLLMGateway(embedding_dimension=settings.embedding_dimension)
 
     from app.llm.providers.openai_compatible import OpenAICompatibleLLMGateway
 
@@ -43,7 +43,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async with checkpointer_context(settings) as checkpointer:
         await setup_checkpointer(checkpointer)
-        app.state.graph = build_graph(app.state.llm_gateway, checkpointer)
+        app.state.graph = build_graph(
+            app.state.llm_gateway, checkpointer, app.state.session_factory
+        )
         yield
 
     await engine.dispose()

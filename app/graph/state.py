@@ -39,6 +39,27 @@ class DepartmentBranchState(TypedDict):
     error: str | None
 
 
+class ScoreFanoutInput(TypedDict):
+    """Payload dispatched via Send("calculate_score", ...) -- one per
+    identified department (or a synthetic UNKNOWN sentinel if the run
+    identified none, so the fan-out is never empty and finalize_result always
+    runs). Deliberately a separate, narrower shape than OpportunityState:
+    calculate_score only ever needs one department's slice of the run."""
+
+    run_id: str
+    department_id: str
+    organization_id: str
+    department_confidence: float
+    organization_score: float
+    related_needs: list[dict]
+    related_capabilities: list[dict]
+    event_relevance: float
+    project_signal: (
+        str  # raw SignalLevel value, mapped to a weight in calculate_score.py
+    )
+    procurement_signal: str
+
+
 class OpportunityState(TypedDict):
     run_id: str
     event: dict
@@ -49,6 +70,11 @@ class OpportunityState(TypedDict):
     capability_context: list
 
     expert_result: dict
+    model_version: str | None
+
+    event_prompt_version: str | None
+    judge_prompt_version: str | None
+    review_prompt_version: str | None
 
     score: float | None
     level: str | None
@@ -57,6 +83,8 @@ class OpportunityState(TypedDict):
     review_result: dict
 
     departments: Annotated[list[DepartmentBranchState], operator.add]
+
+    final_result: dict | None
 
     status: str
     error: str | None

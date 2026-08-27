@@ -24,6 +24,8 @@ os.environ.setdefault("LLM_PROVIDER", "stub")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("APP_ENV", "test")
 
+import asyncio
+
 import psycopg
 import pytest
 import pytest_asyncio
@@ -34,11 +36,26 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.config import get_settings
 
 
+async def _seed() -> None:
+    from app.llm.providers.stub import StubLLMGateway
+    from scripts.seed_phase2 import seed_all
+
+    engine = create_async_engine(get_settings().database_url)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    gateway = StubLLMGateway(embedding_dimension=get_settings().embedding_dimension)
+    async with session_factory() as session:
+        await seed_all(session, gateway)
+    await engine.dispose()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _test_database() -> None:
-    """Creates opportunity_platform_test if missing, then runs `alembic upgrade
+    """Creates opportunity_platform_test if missing, runs `alembic upgrade
     head` against it (env.py reads the URL via get_settings(), which already
-    resolves to the test DB thanks to the env vars set above)."""
+    resolves to the test DB thanks to the env vars set above), then seeds
+    Phase 2's reference data once so every test has real rows to work
+    against. asyncio.run() here (not a pytest_asyncio fixture) sidesteps a
+    session-scoped-fixture/function-scoped-event-loop mismatch."""
     conn = psycopg.connect(ADMIN_DB_URL, autocommit=True)
     try:
         exists = conn.execute(
@@ -54,20 +71,26 @@ def _test_database() -> None:
     command.upgrade(alembic_cfg, "head")
 
     get_settings.cache_clear()
+    asyncio.run(_seed())
 
 
 @pytest_asyncio.fixture
 async def db_session():
     """Direct DB access for assertions -- independent of the app's own engine
-    (built fresh per-app in main.py's lifespan). Truncates `event` before each
-    test for isolation (simpler than nested-transaction sharing given the app
-    manages its own connection pool, separate from this fixture's)."""
+    (built fresh per-app in main.py's lifespan). Truncates the per-run tables
+    (`event`, `expert_run`) before each test for isolation -- simpler than
+    nested-transaction sharing given the app manages its own connection pool,
+    separate from this fixture's. Reference data (organization/department/
+    knowledge_chunk/capability/prompt_template/score_config) is seeded once
+    per session and left alone -- it's shared, static fixture data."""
     engine = create_async_engine(get_settings().database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         from sqlalchemy import text
 
-        await conn.execute(text("TRUNCATE TABLE event RESTART IDENTITY CASCADE"))
+        await conn.execute(
+            text("TRUNCATE TABLE event, expert_run RESTART IDENTITY CASCADE")
+        )
     async with session_factory() as session:
         yield session
     await engine.dispose()
