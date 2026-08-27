@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,54 @@ async def create_event(session: AsyncSession, payload: EventCreate) -> Event:
         industry=payload.industry,
         status=EventStatus.NEW,
         content_hash=compute_content_hash(payload.content),
+    )
+    session.add(event)
+    await session.commit()
+    await session.refresh(event)
+    return event
+
+
+async def create_collected_event(
+    session: AsyncSession,
+    *,
+    collector_source_id: uuid.UUID,
+    title: str,
+    content: str,
+    source_url: str,
+    source_name: str | None,
+    published_at: datetime | None,
+    region: str | None,
+    industry: str | None,
+    url_hash: str,
+    title_hash: str,
+    content_hash: str,
+    filter_score: float | None,
+    status: str,
+    metadata: dict | None,
+) -> Event:
+    """Second creation path distinct from create_event (which serves the
+    EventCreate/manual-API shape) -- Collector's inputs (extra hashes,
+    caller-supplied status/filter_score, collector_source_id) don't fit that
+    schema. spec §17: source_type is always "PUBLIC_WEB" for Collector-created
+    events (a different vocabulary from CollectorSource.source_type -- see
+    CONTEXT.md)."""
+    event = Event(
+        title=title,
+        content=content,
+        source_type="PUBLIC_WEB",
+        source_name=source_name,
+        source_url=source_url,
+        published_at=published_at,
+        collected_at=datetime.now(UTC),
+        region=region,
+        industry=industry,
+        status=status,
+        content_hash=content_hash,
+        url_hash=url_hash,
+        title_hash=title_hash,
+        filter_score=filter_score,
+        metadata_=metadata,
+        collector_source_id=collector_source_id,
     )
     session.add(event)
     await session.commit()

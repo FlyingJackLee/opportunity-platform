@@ -23,6 +23,10 @@ os.environ.setdefault("CHECKPOINT_DATABASE_URL", TEST_CHECKPOINT_DATABASE_URL)
 os.environ.setdefault("LLM_PROVIDER", "stub")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("APP_ENV", "test")
+# Never let background cron jobs fire nondeterministically during the test
+# suite -- collector tests call run_collection_cycle/POST /collectors/{id}/run
+# directly instead.
+os.environ.setdefault("COLLECTOR_SCHEDULER_ENABLED", "false")
 
 import asyncio
 
@@ -38,13 +42,15 @@ from app.core.config import get_settings
 
 async def _seed() -> None:
     from app.llm.providers.stub import StubLLMGateway
-    from scripts.seed_phase2 import seed_all
+    from scripts.seed_phase2 import seed_all as seed_phase2_all
+    from scripts.seed_phase3 import seed_all as seed_phase3_all
 
     engine = create_async_engine(get_settings().database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     gateway = StubLLMGateway(embedding_dimension=get_settings().embedding_dimension)
     async with session_factory() as session:
-        await seed_all(session, gateway)
+        await seed_phase2_all(session, gateway)
+        await seed_phase3_all(session)
     await engine.dispose()
 
 

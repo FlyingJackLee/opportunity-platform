@@ -31,6 +31,10 @@ Organization 下的一个具体处室/科室，是 Expert Judge 判断"谁可能
 `customer_owner` 表中的一条记录，代表我方内部负责跟进某个客户单位（Organization）或客户单位下某个部门（Department）关系的商务/客户经理。**不是**客户单位内部的联系人或牵头人——一期不追踪客户单位内部具体是谁在牵头（对应"一期不建的表"里的"联系人关系图谱"）。一个 Department 最多解析出一个 Customer Owner。
 _Avoid_: 部门负责人 / 组织负责人（容易被误解为客户单位内部的人；实际指的是我方指派负责该客户关系的 Customer Owner）
 
+**Event.source_type vs CollectorSource.source_type**：
+两个同名字段，但是两套不同的词表，容易搞混。`event.source_type`（spec §17）回答"这条 Event 是怎么进来的"——受控取值 `PUBLIC_WEB`（Collector 自动采集，一律写死这个值）/ `MANUAL`（手工创建）。`collector_source.source_type`（spec §9）回答"这个信息源是什么类型的站点"——`GOV_WEB`/招标网站等站点分类，用来配置 Crawler/Parser 该怎么处理这个源。两者没有对应关系，不要试图互相映射。
+_Avoid_: 假设两个 `source_type` 是同一套枚举，或者试图从 `collector_source.source_type` 推出 `event.source_type` 应该填什么。
+
 **Industry / Region Tag**：
 `event`/`organization`/`knowledge_chunk`/`collector_source` 等表里的 `industry`/`region` 字段必须取自一份受控词表（一期以代码常量/枚举维护，不必建数据库表），而不是自由文本，保证跨表打标能精确匹配（避免"重庆"/"重庆市"/"渝"互相匹配不上）。
 

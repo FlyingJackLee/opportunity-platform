@@ -24,6 +24,7 @@ from app.schemas.expert import (
     NeedMaturity,
     OrganizationResult,
 )
+from app.schemas.filter import FilterRelevanceResult
 from app.schemas.review import ReviewResult
 
 _ORG_ID = str(seed_uuid(ORG_ZHUJIAN_WEI))
@@ -105,8 +106,15 @@ _MINI_REVIEW_FIXTURE = ReviewResult(
     risk_note="暂无明确采购及预算信息。",
 )
 
+_FILTER_RELEVANCE_FIXTURE = FilterRelevanceResult(
+    relevant=True,
+    confidence=0.85,
+    reason="标题/正文命中城市生命线相关关键词，且涉及数字化建设任务。",
+)
+
 FIXTURES: dict[str, BaseModel] = {
     "EVENT_ANALYZE": _EVENT_ANALYZE_FIXTURE,
     "EXPERT_JUDGE": _EXPERT_JUDGE_FIXTURE,
     "MINI_REVIEW": _MINI_REVIEW_FIXTURE,
+    "FILTER_RELEVANCE": _FILTER_RELEVANCE_FIXTURE,
 }

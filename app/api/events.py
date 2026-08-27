@@ -1,11 +1,10 @@
 import uuid
-from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
-from app.graph.runner import run_graph
+from app.graph.runner import event_to_graph_input, run_graph
 from app.models.event import EventStatus
 from app.repositories.event_repository import create_event, get_event, set_event_status
 from app.schemas.event import EventCreate, EventCreateResponse, EventRead
@@ -30,11 +29,7 @@ def _trigger_run(
     event, request: Request, background_tasks: BackgroundTasks
 ) -> EventCreateResponse:
     run_id = str(uuid.uuid4())
-    event_dict: dict[str, Any] = {
-        "id": str(event.id),
-        "title": event.title,
-        "content": event.content,
-    }
+    event_dict = event_to_graph_input(event)
     background_tasks.add_task(
         run_graph,
         request.app.state.graph,

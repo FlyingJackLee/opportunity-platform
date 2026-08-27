@@ -6,10 +6,17 @@ from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.logging import bind_run_context
-from app.models.event import EventStatus
+from app.models.event import Event, EventStatus
 from app.repositories import event_repository, expert_run_repository
 
 logger = structlog.get_logger()
+
+
+def event_to_graph_input(event: Event) -> dict[str, Any]:
+    """Shared by app/api/events.py's manual trigger and
+    app/collector/scheduler.py's auto-trigger, so both build graph input
+    identically."""
+    return {"id": str(event.id), "title": event.title, "content": event.content}
 
 
 async def run_graph(

@@ -3,8 +3,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.collectors import router as collectors_router
 from app.api.events import router as events_router
 from app.api.runs import router as runs_router
+from app.collector.crawler import StaticCrawler
+from app.collector.scheduler import CollectorScheduler
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_session_factory
 from app.core.logging import configure_logging
@@ -46,7 +49,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.graph = build_graph(
             app.state.llm_gateway, checkpointer, app.state.session_factory
         )
+
+        scheduler = None
+        if settings.collector_scheduler_enabled:
+            scheduler = CollectorScheduler(
+                session_factory=app.state.session_factory,
+                crawler_factory=StaticCrawler,
+                llm_gateway=app.state.llm_gateway,
+                graph=app.state.graph,
+            )
+            await scheduler.start()
+
         yield
+
+        if scheduler is not None:
+            await scheduler.stop()
 
     await engine.dispose()
 
@@ -55,6 +72,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Opportunity Intelligence Platform", lifespan=lifespan)
     app.include_router(events_router)
     app.include_router(runs_router)
+    app.include_router(collectors_router)
     return app
 
 

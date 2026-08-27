@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import get_settings
 from app.models import (  # noqa: F401
     capability,
+    collector_source,
     department,
     event,
+    event_filter_rule,
     expert_run,
     knowledge,
     organization,
