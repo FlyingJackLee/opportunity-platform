@@ -18,7 +18,7 @@ from app.graph.graph import build_graph
 from app.llm.gateway import LLMGateway
 
 
-def build_llm_gateway(settings: Settings) -> LLMGateway:
+def build_chat_gateway(settings: Settings) -> LLMGateway:
     if settings.llm_provider == "stub":
         from app.llm.providers.stub import StubLLMGateway
 
@@ -34,6 +34,37 @@ def build_llm_gateway(settings: Settings) -> LLMGateway:
         api_key=settings.llm_api_key,
         model=settings.llm_model,
         base_url=settings.llm_base_url,
+    )
+
+
+def build_embedding_gateway(settings: Settings) -> LLMGateway:
+    if settings.embedding_provider == "stub":
+        from app.llm.providers.stub import StubLLMGateway
+
+        return StubLLMGateway(embedding_dimension=settings.embedding_dimension)
+
+    from app.llm.providers.openai_compatible import OpenAICompatibleLLMGateway
+
+    if not settings.embedding_api_key:
+        raise RuntimeError(
+            "EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=openai_compatible"
+        )
+    return OpenAICompatibleLLMGateway(
+        api_key=settings.embedding_api_key,
+        model=settings.embedding_model,
+        base_url=settings.embedding_base_url,
+    )
+
+
+def build_llm_gateway(settings: Settings) -> LLMGateway:
+    """ADR-0004: chat (structured_generate) and embedding are independently
+    configured/selected (LLM_PROVIDER vs EMBEDDING_PROVIDER) and composed
+    behind the single LLMGateway interface node/knowledge code depends on."""
+    from app.llm.providers.composite import CompositeLLMGateway
+
+    return CompositeLLMGateway(
+        chat=build_chat_gateway(settings),
+        embedding=build_embedding_gateway(settings),
     )
 
 

@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     llm_api_key: str | None = None
     llm_model: str = "gpt-4o-mini"
     llm_base_url: str = "https://api.openai.com/v1"
-    embedding_dimension: int = 1536
+    embedding_provider: Literal["stub", "openai_compatible"] = "stub"
+    embedding_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_base_url: str = "https://api.openai.com/v1"
+    embedding_dimension: int = 1024
     collector_scheduler_enabled: bool = True
     dingtalk_webhook_url: str | None = None
     dingtalk_webhook_secret: str | None = None

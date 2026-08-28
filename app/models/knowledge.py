@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin
 
-EMBEDDING_DIMENSION = 1536
+EMBEDDING_DIMENSION = 1024  # BGE-m3, see migrations/versions/0006_*
 
 
 class KnowledgeChunk(Base, TimestampMixin):
