@@ -30,24 +30,32 @@ def rule_filter(parsed: ParsedContent, rules: FilterRules) -> FilterDecision:
 
     matched_exclude = [kw for kw in rules.exclude_keywords if kw.lower() in haystack]
     if matched_exclude:
-        return FilterDecision(
+        decision = FilterDecision(
             passed=False,
             matched_exclude=matched_exclude,
             reason="matched exclude keyword",
         )
-
-    if not rules.include_keywords:
-        return FilterDecision(passed=True, reason="no include keywords configured")
-
-    matched_include = [kw for kw in rules.include_keywords if kw.lower() in haystack]
-    if matched_include:
-        return FilterDecision(
-            passed=True,
-            matched_include=matched_include,
-            reason="matched include keyword",
+    elif not rules.include_keywords:
+        decision = FilterDecision(passed=True, reason="no include keywords configured")
+    else:
+        matched_include = [kw for kw in rules.include_keywords if kw.lower() in haystack]
+        decision = (
+            FilterDecision(
+                passed=True, matched_include=matched_include, reason="matched include keyword"
+            )
+            if matched_include
+            else FilterDecision(passed=False, reason="no include keyword matched")
         )
 
-    return FilterDecision(passed=False, reason="no include keyword matched")
+    logger.debug(
+        "filter_layer1_decision",
+        title=parsed.title,
+        passed=decision.passed,
+        reason=decision.reason,
+        matched_include=decision.matched_include,
+        matched_exclude=decision.matched_exclude,
+    )
+    return decision
 
 
 async def llm_relevance_filter(
@@ -66,4 +74,13 @@ async def llm_relevance_filter(
         )
     except Exception as exc:
         raise LLMError(f"filter relevance check failed: {exc}") from exc
+    logger.debug(
+        "filter_layer2_decision",
+        title=parsed.title,
+        relevant=result.data.relevant,
+        confidence=result.data.confidence,
+        threshold=threshold,
+        passed=result.data.relevant and result.data.confidence >= threshold,
+        reason=result.data.reason,
+    )
     return result.data

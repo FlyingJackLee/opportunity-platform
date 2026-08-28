@@ -28,6 +28,15 @@ os.environ.setdefault("LLM_PROVIDER", "stub")
 # embedding vendor is configured there, making the suite flaky/networked/
 # credential-dependent instead of hermetic.
 os.environ.setdefault("EMBEDDING_PROVIDER", "stub")
+# Same leak, same fix, but for delivery: app/main.py's build_delivery_channel
+# picks the real DingTalkAdapter whenever settings.dingtalk_webhook_url is
+# truthy, and falls through to the real .env value if nothing here sets it
+# -- meaning every test run that exercises a push-eligible event (e.g.
+# tests/test_events_api.py's full-pipeline test) was sending real messages
+# to whatever DingTalk group .env points at. Force both webhook URLs empty
+# (falsy) so tests always get RecordingDeliveryChannel, never a live send.
+os.environ.setdefault("DINGTALK_WEBHOOK_URL", "")
+os.environ.setdefault("DINGTALK_PUBLIC_GROUP_WEBHOOK_URL", "")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("APP_ENV", "test")
 # Never let background cron jobs fire nondeterministically during the test

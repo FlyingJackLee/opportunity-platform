@@ -221,3 +221,42 @@ async def test_customer_owner_update_and_disable() -> None:
         assert owner["id"] not in [
             o["id"] for o in client.get("/api/v1/customer-owners").json()
         ]
+
+
+@pytest.mark.usefixtures("_test_database")
+async def test_filter_rule_crud() -> None:
+    value = f"测试关键词-{uuid.uuid4().hex[:8]}"
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/filter-rules", json={"rule_type": "INCLUDE_KEYWORD", "value": value}
+        )
+        assert create_response.status_code == 200
+        rule = create_response.json()
+        assert rule["enabled"] is True
+
+        list_response = client.get("/api/v1/filter-rules")
+        assert rule["id"] in [r["id"] for r in list_response.json()]
+
+        update_response = client.patch(
+            f"/api/v1/filter-rules/{rule['id']}", json={"value": f"{value}-改"}
+        )
+        assert update_response.json()["value"] == f"{value}-改"
+
+        disable_response = client.post(f"/api/v1/filter-rules/{rule['id']}/disable")
+        assert disable_response.json()["enabled"] is False
+
+        enable_response = client.post(f"/api/v1/filter-rules/{rule['id']}/enable")
+        assert enable_response.json()["enabled"] is True
+
+        delete_response = client.delete(f"/api/v1/filter-rules/{rule['id']}")
+        assert delete_response.status_code == 204
+        assert rule["id"] not in [r["id"] for r in client.get("/api/v1/filter-rules").json()]
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_filter_rule_create_rejects_unknown_rule_type() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/filter-rules", json={"rule_type": "BOGUS", "value": "x"}
+        )
+    assert response.status_code == 422

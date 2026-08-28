@@ -204,3 +204,19 @@ export interface CustomerOwnerCreate {
 }
 
 export type CustomerOwnerUpdate = Partial<Omit<CustomerOwnerCreate, "organization_id">>;
+
+export interface EventFilterRule {
+  id: string;
+  rule_type: string;
+  value: string;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventFilterRuleCreate {
+  rule_type: string;
+  value: string;
+}
+
+export type EventFilterRuleUpdate = Partial<Omit<EventFilterRuleCreate, "rule_type">>;

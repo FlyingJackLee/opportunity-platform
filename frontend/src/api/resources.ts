@@ -12,6 +12,9 @@ import type {
   Department,
   DepartmentCreate,
   DepartmentUpdate,
+  EventFilterRule,
+  EventFilterRuleCreate,
+  EventFilterRuleUpdate,
   KnowledgeChunk,
   KnowledgeChunkCreate,
   KnowledgeChunkUpdate,
@@ -53,3 +56,9 @@ export const ownersApi = createResourceHooks<
   CustomerOwnerCreate,
   CustomerOwnerUpdate
 >("/api/v1/customer-owners", "customer-owners");
+
+export const filterRulesApi = createResourceHooks<
+  EventFilterRule,
+  EventFilterRuleCreate,
+  EventFilterRuleUpdate
+>("/api/v1/filter-rules", "filter-rules");

@@ -22,12 +22,15 @@ import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+import structlog
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 
 from app.collector.crawler import RawDocument
 from app.core.exceptions import ParseError
 from app.llm.gateway import LLMGateway
+
+logger = structlog.get_logger()
 
 _DATE_PATTERNS = [
     (
@@ -159,6 +162,9 @@ async def _llm_list_links(html: str, base_url: str, gateway: LLMGateway) -> list
     from urllib.parse import urljoin
 
     cleaned = _clean_html_for_llm(html)
+    logger.debug(
+        "llm_list_links_call", base_url=base_url, prompt_chars=len(cleaned)
+    )
     prompt = (
         "这是一个政府/媒体网站的公告或新闻列表页的 HTML。找出页面里指向具体一篇公告/新闻"
         "详情页的链接（不是导航栏、面包屑、页眉页脚、友情链接这些站点通用链接）。"
@@ -168,11 +174,14 @@ async def _llm_list_links(html: str, base_url: str, gateway: LLMGateway) -> list
     result = await gateway.structured_generate(
         task_type="PARSE_LIST_LINKS", prompt=prompt, schema=_ExtractedLinks
     )
-    return [urljoin(base_url, href) for href in result.data.links if href.strip()]
+    links = [urljoin(base_url, href) for href in result.data.links if href.strip()]
+    logger.debug("llm_list_links_result", base_url=base_url, link_count=len(links))
+    return links
 
 
 async def _llm_detail(raw: RawDocument, source_name: str, gateway: LLMGateway) -> ParsedContent | None:
     cleaned = _clean_html_for_llm(raw.html)
+    logger.debug("llm_detail_call", url=raw.url, prompt_chars=len(cleaned))
     prompt = (
         "这是一篇公告/新闻详情页的 HTML。提取它的标题、正文（去掉导航/广告/相关推荐等"
         "无关内容，只要正文本身）、发布日期（找不到就留空）。\n\n"
@@ -183,7 +192,14 @@ async def _llm_detail(raw: RawDocument, source_name: str, gateway: LLMGateway) -
     )
     article = result.data
     if not article.title or not article.content:
+        logger.debug("llm_detail_result_empty", url=raw.url)
         return None
+    logger.debug(
+        "llm_detail_result_ok",
+        url=raw.url,
+        title=article.title,
+        content_chars=len(article.content),
+    )
     return ParsedContent(
         title=article.title,
         content=article.content,
@@ -211,7 +227,14 @@ async def extract_list_links(
         raise ParseError(f"unknown parser_type={parser_type}")
     list_fn, _ = PARSER_REGISTRY[parser_type]
     links = list_fn(html, base_url)
-    if links or gateway is None or budget is None or not budget.consume():
+    logger.debug("css_list_links_result", base_url=base_url, link_count=len(links))
+    if links:
+        return links
+    if gateway is None:
+        logger.debug("llm_list_links_skipped", base_url=base_url, reason="no_gateway")
+        return links
+    if budget is None or not budget.consume():
+        logger.debug("llm_list_links_skipped", base_url=base_url, reason="budget_exhausted")
         return links
     return await _llm_list_links(html, base_url, gateway)
 
@@ -228,8 +251,14 @@ async def parse_detail(
         raise ParseError(f"unknown parser_type={parser_type}")
     _, detail_fn = PARSER_REGISTRY[parser_type]
     parsed = detail_fn(raw, source_name)
-    if parsed is None and gateway is not None and budget is not None and budget.consume():
-        parsed = await _llm_detail(raw, source_name, gateway)
+    logger.debug("css_detail_result", url=raw.url, ok=parsed is not None)
+    if parsed is None:
+        if gateway is None:
+            logger.debug("llm_detail_skipped", url=raw.url, reason="no_gateway")
+        elif budget is None or not budget.consume():
+            logger.debug("llm_detail_skipped", url=raw.url, reason="budget_exhausted")
+        else:
+            parsed = await _llm_detail(raw, source_name, gateway)
     if parsed is None:
         raise ParseError(f"could not extract title/content from {raw.url}")
     return parsed

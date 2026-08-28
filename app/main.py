@@ -8,6 +8,7 @@ from app.api.capabilities import router as capabilities_router
 from app.api.collectors import router as collectors_router
 from app.api.departments import router as departments_router
 from app.api.events import router as events_router
+from app.api.filter_rules import router as filter_rules_router
 from app.api.knowledge import router as knowledge_router
 from app.api.organizations import router as organizations_router
 from app.api.owners import router as owners_router
@@ -139,6 +140,7 @@ def create_app() -> FastAPI:
     app.include_router(departments_router)
     app.include_router(knowledge_router)
     app.include_router(capabilities_router)
+    app.include_router(filter_rules_router)
     return app
 
 

@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass, field
 
 import structlog
@@ -59,3 +60,53 @@ async def get_filter_rules(session: AsyncSession) -> FilterRules:
         exclude_keywords=exclude,
         relevance_threshold=threshold,
     )
+
+
+async def list_all(session: AsyncSession) -> list[EventFilterRule]:
+    stmt = select(EventFilterRule).order_by(EventFilterRule.rule_type, EventFilterRule.value)
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def get(session: AsyncSession, rule_id: uuid.UUID) -> EventFilterRule | None:
+    return await session.get(EventFilterRule, rule_id)
+
+
+async def create(session: AsyncSession, **fields) -> EventFilterRule:
+    rule = EventFilterRule(**fields)
+    session.add(rule)
+    await session.commit()
+    await session.refresh(rule)
+    return rule
+
+
+async def update(session: AsyncSession, rule_id: uuid.UUID, **fields) -> EventFilterRule | None:
+    rule = await session.get(EventFilterRule, rule_id)
+    if rule is None:
+        return None
+    for key, value in fields.items():
+        if value is not None:
+            setattr(rule, key, value)
+    await session.commit()
+    await session.refresh(rule)
+    return rule
+
+
+async def set_enabled(
+    session: AsyncSession, rule_id: uuid.UUID, enabled: bool
+) -> EventFilterRule | None:
+    rule = await session.get(EventFilterRule, rule_id)
+    if rule is None:
+        return None
+    rule.enabled = enabled
+    await session.commit()
+    await session.refresh(rule)
+    return rule
+
+
+async def delete(session: AsyncSession, rule_id: uuid.UUID) -> bool:
+    rule = await session.get(EventFilterRule, rule_id)
+    if rule is None:
+        return False
+    await session.delete(rule)
+    await session.commit()
+    return True

@@ -1,5 +1,6 @@
-/** Mirrors app/core/vocabulary.py's SourceType/OrganizationType StrEnums --
- * kept in sync by hand since there's no shared codegen between the two. */
+/** Mirrors app/core/vocabulary.py's SourceType/OrganizationType StrEnums (and
+ * app/models/event_filter_rule.py's FilterRuleType) -- kept in sync by hand
+ * since there's no shared codegen between the two. */
 
 export const SOURCE_TYPES = [
   { value: "GOV_WEB", label: "政府网站" },
