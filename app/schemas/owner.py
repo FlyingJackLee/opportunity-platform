@@ -25,3 +25,9 @@ class CustomerOwnerCreate(BaseModel):
     owner_user_id: str | None = None
     dingtalk_user_id: str | None = None
     enabled: bool = True
+
+
+class CustomerOwnerUpdate(BaseModel):
+    owner_name: str | None = None
+    owner_user_id: str | None = None
+    dingtalk_user_id: str | None = None

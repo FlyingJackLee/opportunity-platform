@@ -51,7 +51,12 @@ class StubLLMGateway(LLMGateway):
         self,
         *,
         fixture_overrides: dict[str, BaseModel] | None = None,
-        embedding_dimension: int = 1536,
+        # Must match the real pgvector column width (app/models/knowledge.py's
+        # EMBEDDING_DIMENSION) or vector similarity queries against
+        # capability/knowledge_chunk fail with a dimension mismatch -- callers
+        # that skip passing settings.embedding_dimension explicitly rely on
+        # this default staying in sync with the current migration (0006).
+        embedding_dimension: int = 1024,
     ) -> None:
         self._fixtures = {**FIXTURES, **(fixture_overrides or {})}
         self._embedding_dimension = embedding_dimension

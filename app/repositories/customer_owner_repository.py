@@ -83,3 +83,31 @@ async def create_owner(
     await session.commit()
     await session.refresh(owner)
     return owner
+
+
+async def get(session: AsyncSession, owner_id: uuid.UUID) -> CustomerOwner | None:
+    return await session.get(CustomerOwner, owner_id)
+
+
+async def update(session: AsyncSession, owner_id: uuid.UUID, **fields) -> CustomerOwner | None:
+    owner = await session.get(CustomerOwner, owner_id)
+    if owner is None:
+        return None
+    for key, value in fields.items():
+        if value is not None:
+            setattr(owner, key, value)
+    await session.commit()
+    await session.refresh(owner)
+    return owner
+
+
+async def set_enabled(
+    session: AsyncSession, owner_id: uuid.UUID, enabled: bool
+) -> CustomerOwner | None:
+    owner = await session.get(CustomerOwner, owner_id)
+    if owner is None:
+        return None
+    owner.enabled = enabled
+    await session.commit()
+    await session.refresh(owner)
+    return owner

@@ -155,6 +155,29 @@ uv run pytest
 
 注：测试依赖 `psycopg`（需要本机能加载 `libpq`）和 Postgres/Redis 已启动（`deploy/docker-compose.yml`）。macOS 上如果报 `no pq wrapper available`，装一下 libpq（如 `brew install libpq` 并将其加入 `DYLD_LIBRARY_PATH`/`PATH`，或改用 `psycopg[binary]`）。
 
+## 前端管理界面
+
+`frontend/`（Vite + React + TypeScript）是配置数据的管理后台——信息源、重点单位/部门、行业知识、公司能力、客户经理，对应 spec §102 的数据准备，不用手动连数据库改。不含事件/推送记录的查看（那部分继续用下面的 API/docs），也不含登录鉴权（一期内网工具）。
+
+```bash
+# 后端(先按上面的步骤起好，监听默认的 8000)
+uv run uvicorn app.main:app --reload
+
+# 前端(另开一个终端)
+cd frontend
+cp .env.example .env   # VITE_API_BASE_URL 默认指向 http://localhost:8000
+npm install
+npm run dev             # http://localhost:5173
+```
+
+前端跨源调用后端依赖 CORS，`Settings.cors_allow_origins`（`app/core/config.py`）默认已放行 `http://localhost:5173`；如果改了前端端口或部署到别的域名，在后端 `.env` 里加：
+
+```bash
+CORS_ALLOW_ORIGINS=["http://localhost:5173","https://your-domain"]
+```
+
+行业知识/公司能力的新建、编辑都会实时调用当前配置的 Embedding 服务（见上面"从 stub 切到真实服务"）算向量，前端表单不暴露 embedding 字段。
+
 ## 主要 API
 
 | Method | Path | 说明 |
@@ -163,9 +186,14 @@ uv run pytest
 | POST | `/api/v1/events/{id}/analyze` | 触发一次 Expert 分析（异步，返回 `run_id`） |
 | POST | `/api/v1/events/{id}/reanalyze` | 对同一 Event 发起新的一次分析 |
 | GET | `/api/v1/runs/{run_id}` | 查询某次分析的状态/结果/推送情况（spec §106 Trace） |
-| GET | `/api/v1/collectors` | 列出 Collector Source |
-| POST | `/api/v1/collectors/{id}/run` | 手动触发一次采集 |
-| GET/POST | `/api/v1/customer-owners` | 客户经理路由配置 |
+| GET/POST/PATCH | `/api/v1/collectors` | 信息源 CRUD，另有 `/enable`、`/disable`、`/{id}/run`（手动触发一次采集） |
+| GET/POST/PATCH | `/api/v1/organizations` | 重点单位 CRUD，另有 `/activate`、`/deactivate` |
+| GET/POST/PATCH | `/api/v1/departments` | 部门 CRUD（`?organization_id=` 过滤），另有 `/activate`、`/deactivate` |
+| GET/POST/PATCH | `/api/v1/knowledge-chunks` | 行业知识 CRUD（自动算 embedding），另有 `/activate`、`/deactivate` |
+| GET/POST/PATCH | `/api/v1/capabilities` | 公司能力 CRUD（自动算 embedding），另有 `/activate`、`/deactivate` |
+| GET/POST/PATCH | `/api/v1/customer-owners` | 客户经理 CRUD，另有 `/enable`、`/disable` |
+
+完整列表见 `/docs`（FastAPI 自动生成）。除 `collector_source`/`customer_owner` 用 `enabled: bool` 外，其余实体统一用 `status: "ACTIVE"/"INACTIVE"` 做软删除，没有硬 DELETE。
 
 ## 目录速览
 
@@ -186,6 +214,9 @@ migrations/     Alembic
 scripts/        一次性/种子脚本
 tests/          按模块划分（collector/、push/、根目录下 graph 相关）
 docs/adr/       架构决策记录
+frontend/       管理界面（Vite + React + TS），见上面"前端管理界面"一节
+  src/api/      fetch 封装 + 各资源的 react-query hooks（resource.ts 是共用工厂）
+  src/pages/    信息源/重点单位/行业知识/公司能力/客户经理 5 个页面
 ```
 
 更细的领域术语（Event / Opportunity / ExpertResult / FinalResult / Score Level 等的精确定义和易混淆点）见 [`CONTEXT.md`](CONTEXT.md)。

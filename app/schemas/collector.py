@@ -22,6 +22,31 @@ class CollectorSourceRead(BaseModel):
     updated_at: datetime
 
 
+class CollectorSourceCreate(BaseModel):
+    name: str
+    source_type: str
+    base_url: str | None = None
+    list_url: str
+    enabled: bool = True
+    schedule: str
+    parser_type: str
+    industry_tags: list[str] | None = None
+    region_tags: list[str] | None = None
+    priority: int = 0
+
+
+class CollectorSourceUpdate(BaseModel):
+    name: str | None = None
+    source_type: str | None = None
+    base_url: str | None = None
+    list_url: str | None = None
+    schedule: str | None = None
+    parser_type: str | None = None
+    industry_tags: list[str] | None = None
+    region_tags: list[str] | None = None
+    priority: int | None = None
+
+
 class CollectorRunResponse(BaseModel):
     source_id: str
     fetched: int

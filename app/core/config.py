@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     dingtalk_public_group_webhook_secret: str | None = None
     log_level: str = "INFO"
     app_env: Literal["local", "test", "production"] = "local"
+    cors_allow_origins: list[str] = ["http://localhost:5173"]
 
 
 @lru_cache

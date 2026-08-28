@@ -31,3 +31,48 @@ async def get_by_id(session: AsyncSession, organization_id: str) -> Organization
     except ValueError:
         return None
     return await session.get(Organization, org_uuid)
+
+
+async def get(session: AsyncSession, organization_id: uuid.UUID) -> Organization | None:
+    """Admin-API counterpart to get_by_id -- takes a real UUID, no UNKNOWN
+    tolerance (a 404 on a bad id is the right behavior for the admin UI)."""
+    return await session.get(Organization, organization_id)
+
+
+async def list_all(session: AsyncSession) -> list[Organization]:
+    stmt = select(Organization).order_by(Organization.name)
+    return list((await session.execute(stmt)).scalars().all())
+
+
+async def create(session: AsyncSession, **fields) -> Organization:
+    org = Organization(**fields)
+    session.add(org)
+    await session.commit()
+    await session.refresh(org)
+    return org
+
+
+async def update(
+    session: AsyncSession, organization_id: uuid.UUID, **fields
+) -> Organization | None:
+    org = await session.get(Organization, organization_id)
+    if org is None:
+        return None
+    for key, value in fields.items():
+        if value is not None:
+            setattr(org, key, value)
+    await session.commit()
+    await session.refresh(org)
+    return org
+
+
+async def set_status(
+    session: AsyncSession, organization_id: uuid.UUID, status: str
+) -> Organization | None:
+    org = await session.get(Organization, organization_id)
+    if org is None:
+        return None
+    org.status = status
+    await session.commit()
+    await session.refresh(org)
+    return org

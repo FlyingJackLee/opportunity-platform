@@ -6,8 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.collector.crawler import StaticCrawler
 from app.collector.scheduler import run_collection_cycle
 from app.core.db import get_session
+from app.repositories import collector_source_repository
 from app.repositories.collector_source_repository import get_source, list_sources
-from app.schemas.collector import CollectorRunResponse, CollectorSourceRead
+from app.schemas.collector import (
+    CollectorRunResponse,
+    CollectorSourceCreate,
+    CollectorSourceRead,
+    CollectorSourceUpdate,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["collectors"])
 
@@ -18,6 +24,51 @@ async def list_collectors_endpoint(
 ) -> list[CollectorSourceRead]:
     sources = await list_sources(session)
     return [CollectorSourceRead.model_validate(s) for s in sources]
+
+
+@router.post("/collectors", response_model=CollectorSourceRead)
+async def create_collector_endpoint(
+    payload: CollectorSourceCreate,
+    session: AsyncSession = Depends(get_session),
+) -> CollectorSourceRead:
+    source = await collector_source_repository.create(session, **payload.model_dump())
+    return CollectorSourceRead.model_validate(source)
+
+
+@router.patch("/collectors/{source_id}", response_model=CollectorSourceRead)
+async def update_collector_endpoint(
+    source_id: uuid.UUID,
+    payload: CollectorSourceUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> CollectorSourceRead:
+    source = await collector_source_repository.update(
+        session, source_id, **payload.model_dump()
+    )
+    if source is None:
+        raise HTTPException(status_code=404, detail="collector source not found")
+    return CollectorSourceRead.model_validate(source)
+
+
+@router.post("/collectors/{source_id}/enable", response_model=CollectorSourceRead)
+async def enable_collector_endpoint(
+    source_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> CollectorSourceRead:
+    source = await collector_source_repository.set_enabled(session, source_id, True)
+    if source is None:
+        raise HTTPException(status_code=404, detail="collector source not found")
+    return CollectorSourceRead.model_validate(source)
+
+
+@router.post("/collectors/{source_id}/disable", response_model=CollectorSourceRead)
+async def disable_collector_endpoint(
+    source_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> CollectorSourceRead:
+    source = await collector_source_repository.set_enabled(session, source_id, False)
+    if source is None:
+        raise HTTPException(status_code=404, detail="collector source not found")
+    return CollectorSourceRead.model_validate(source)
 
 
 @router.post("/collectors/{source_id}/run", response_model=CollectorRunResponse)

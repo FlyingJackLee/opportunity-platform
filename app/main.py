@@ -2,9 +2,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.capabilities import router as capabilities_router
 from app.api.collectors import router as collectors_router
+from app.api.departments import router as departments_router
 from app.api.events import router as events_router
+from app.api.knowledge import router as knowledge_router
+from app.api.organizations import router as organizations_router
 from app.api.owners import router as owners_router
 from app.api.runs import router as runs_router
 from app.collector.crawler import StaticCrawler
@@ -119,10 +124,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Opportunity Intelligence Platform", lifespan=lifespan)
+    settings = get_settings()
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allow_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.include_router(events_router)
     app.include_router(runs_router)
     app.include_router(collectors_router)
     app.include_router(owners_router)
+    app.include_router(organizations_router)
+    app.include_router(departments_router)
+    app.include_router(knowledge_router)
+    app.include_router(capabilities_router)
     return app
 
 
