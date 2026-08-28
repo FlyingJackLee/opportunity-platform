@@ -19,6 +19,7 @@ from app.collector.crawler import Crawler
 from app.collector.dedup import find_duplicate, url_already_collected
 from app.collector.filter import llm_relevance_filter, rule_filter
 from app.collector.parser import LLMFallbackBudget, extract_list_links, parse_detail
+from app.core.config import get_settings
 from app.core.exceptions import CollectError, LLMError, ParseError
 from app.core.vocabulary import Industry, Region
 from app.graph.runner import event_to_graph_input, run_graph
@@ -148,6 +149,23 @@ async def run_collection_cycle(
             "collector_list_fetch_failed", source_id=summary.source_id, error=str(exc)
         )
         return summary
+
+    # Caps how many items one cycle processes -- list pages are newest-first
+    # (confirmed onboarding real sources), so this is "latest N", not an
+    # arbitrary truncation. Without a cap a dense source (e.g. a public
+    # resource trading platform with dozens of items per page) makes every
+    # single scheduled run take as long as the slowest/most LLM-fallback-
+    # heavy item on the page; anything past the cap is picked up next cycle
+    # instead (COLLECTOR_MAX_ITEMS_PER_RUN in .env, default 5), not lost.
+    max_items = get_settings().collector_max_items_per_run
+    if len(links) > max_items:
+        logger.debug(
+            "collector_list_links_truncated",
+            source_id=summary.source_id,
+            found=len(links),
+            kept=max_items,
+        )
+        links = links[:max_items]
 
     rules = await get_filter_rules(session)
 

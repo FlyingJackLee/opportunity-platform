@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     embedding_base_url: str = "https://api.openai.com/v1"
     embedding_dimension: int = 1024
     collector_scheduler_enabled: bool = True
+    collector_max_items_per_run: int = 5
     dingtalk_webhook_url: str | None = None
     dingtalk_webhook_secret: str | None = None
     dingtalk_public_group_webhook_url: str | None = None
