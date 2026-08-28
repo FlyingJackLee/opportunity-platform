@@ -157,7 +157,7 @@ uv run pytest
 
 ## 前端管理界面
 
-`frontend/`（Vite + React + TypeScript）是配置数据的管理后台——信息源、重点单位/部门、行业知识、公司能力、客户经理，对应 spec §102 的数据准备，不用手动连数据库改。不含事件/推送记录的查看（那部分继续用下面的 API/docs），也不含登录鉴权（一期内网工具）。
+`frontend/`（Vite + React + TypeScript）分两部分：**配置数据的管理后台**——信息源、重点单位/部门、行业知识、公司能力、客户经理，对应 spec §102 的数据准备，不用手动连数据库改；以及一个只读的**事件/运行监控页**（`/events`）——按 Event 查看它的分析历史（分数/档位/状态）、点开某次 run 看完整研判结果和推送记录（spec §106 Trace），外加一个"查看 Graph 拓扑"按钮，用 `graph.get_graph().draw_mermaid()`（LangGraph 自带、不需要 LangGraph Platform）画出节点拓扑，前端用 `mermaid` 包渲染成 SVG——这是静态结构图，不是逐步骤的实时执行动画。手工建 Event 还是走 API/`/docs`，监控页不含创建入口。不含登录鉴权（一期内网工具）。
 
 ```bash
 # 后端(先按上面的步骤起好，监听默认的 8000)
@@ -183,9 +183,12 @@ CORS_ALLOW_ORIGINS=["http://localhost:5173","https://your-domain"]
 | Method | Path | 说明 |
 |---|---|---|
 | POST | `/api/v1/events` | 手工创建 Event（spec §20） |
+| GET | `/api/v1/events` | 列出 Event（最新在前，一期无分页） |
+| GET | `/api/v1/events/{id}` | Event 详情 + 它的完整分析历史（run 列表） |
 | POST | `/api/v1/events/{id}/analyze` | 触发一次 Expert 分析（异步，返回 `run_id`） |
 | POST | `/api/v1/events/{id}/reanalyze` | 对同一 Event 发起新的一次分析 |
 | GET | `/api/v1/runs/{run_id}` | 查询某次分析的状态/结果/推送情况（spec §106 Trace） |
+| GET | `/api/v1/graph/mermaid` | 当前 Graph 的静态节点拓扑（Mermaid 源码） |
 | GET/POST/PATCH | `/api/v1/collectors` | 信息源 CRUD，另有 `/enable`、`/disable`、`/{id}/run`（手动触发一次采集） |
 | GET/POST/PATCH | `/api/v1/organizations` | 重点单位 CRUD，另有 `/activate`、`/deactivate` |
 | GET/POST/PATCH | `/api/v1/departments` | 部门 CRUD（`?organization_id=` 过滤），另有 `/activate`、`/deactivate` |
@@ -216,7 +219,7 @@ tests/          按模块划分（collector/、push/、根目录下 graph 相关
 docs/adr/       架构决策记录
 frontend/       管理界面（Vite + React + TS），见上面"前端管理界面"一节
   src/api/      fetch 封装 + 各资源的 react-query hooks（resource.ts 是共用工厂）
-  src/pages/    信息源/重点单位/行业知识/公司能力/客户经理 5 个页面
+  src/pages/    事件/运行监控 + 信息源/重点单位/行业知识/公司能力/客户经理 5 个配置页面
 ```
 
 更细的领域术语（Event / Opportunity / ExpertResult / FinalResult / Score Level 等的精确定义和易混淆点）见 [`CONTEXT.md`](CONTEXT.md)。

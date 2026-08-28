@@ -1,11 +1,13 @@
 import { NavLink, Route, Routes } from "react-router-dom";
 import CapabilitiesPage from "./pages/CapabilitiesPage";
+import EventsPage from "./pages/EventsPage";
 import KnowledgePage from "./pages/KnowledgePage";
 import OrganizationsPage from "./pages/OrganizationsPage";
 import OwnersPage from "./pages/OwnersPage";
 import SourcesPage from "./pages/SourcesPage";
 
 const NAV_ITEMS = [
+  { to: "/events", label: "事件 / 运行" },
   { to: "/sources", label: "信息源" },
   { to: "/organizations", label: "重点单位" },
   { to: "/knowledge", label: "行业知识" },
@@ -32,7 +34,8 @@ export default function App() {
       </aside>
       <main className="app-content">
         <Routes>
-          <Route path="/" element={<SourcesPage />} />
+          <Route path="/" element={<EventsPage />} />
+          <Route path="/events" element={<EventsPage />} />
           <Route path="/sources" element={<SourcesPage />} />
           <Route path="/organizations" element={<OrganizationsPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />

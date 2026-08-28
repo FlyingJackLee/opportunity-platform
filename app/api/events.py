@@ -6,8 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.db import get_session
 from app.graph.runner import event_to_graph_input, run_graph
 from app.models.event import EventStatus
-from app.repositories.event_repository import create_event, get_event, set_event_status
-from app.schemas.event import EventCreate, EventCreateResponse, EventRead
+from app.repositories.event_repository import (
+    create_event,
+    get_event,
+    list_events,
+    set_event_status,
+)
+from app.repositories.expert_run_repository import list_runs_for_event
+from app.schemas.event import EventCreate, EventCreateResponse, EventDetail, EventRead
+from app.schemas.run import RunSummary
 
 router = APIRouter(prefix="/api/v1", tags=["events"])
 
@@ -23,6 +30,31 @@ async def create_event_endpoint(
     combined create+trigger shortcut."""
     event = await create_event(session, payload)
     return EventRead.model_validate(event)
+
+
+@router.get("/events", response_model=list[EventRead])
+async def list_events_endpoint(
+    session: AsyncSession = Depends(get_session),
+) -> list[EventRead]:
+    """Admin monitoring page (spec §106 Trace) -- newest first, capped at
+    200 (list_events's default); no pagination yet at one-期 scale."""
+    events = await list_events(session)
+    return [EventRead.model_validate(e) for e in events]
+
+
+@router.get("/events/{event_id}", response_model=EventDetail)
+async def get_event_endpoint(
+    event_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> EventDetail:
+    event = await get_event(session, event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="event not found")
+    runs = await list_runs_for_event(session, event_id)
+    return EventDetail(
+        **EventRead.model_validate(event).model_dump(),
+        runs=[RunSummary.model_validate(r) for r in runs],
+    )
 
 
 def _trigger_run(

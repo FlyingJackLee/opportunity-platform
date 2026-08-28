@@ -108,3 +108,57 @@ async def test_reanalyze_creates_a_new_run(db_session) -> None:
     assert first.status_code == 200
     assert second.status_code == 200
     assert first.json()["run_id"] != second.json()["run_id"]
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_list_events_includes_a_newly_created_event(db_session) -> None:
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/events", json={"title": "监控页列表测试", "content": "监控页列表测试内容"}
+        )
+        event_id = create_response.json()["id"]
+
+        list_response = client.get("/api/v1/events")
+
+    assert list_response.status_code == 200
+    assert event_id in [e["id"] for e in list_response.json()]
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_event_detail_includes_run_history(db_session) -> None:
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/events",
+            json={
+                "title": "事件详情页测试",
+                "content": "政策已明确提出基础设施风险监测相关建设任务，用于事件详情接口测试",
+                "region": "重庆市",
+            },
+        )
+        event_id = create_response.json()["id"]
+        client.post(f"/api/v1/events/{event_id}/analyze")
+
+        detail_response = client.get(f"/api/v1/events/{event_id}")
+
+    assert detail_response.status_code == 200
+    body = detail_response.json()
+    assert body["id"] == event_id
+    assert len(body["runs"]) == 1
+    assert body["runs"][0]["status"] == "COMPLETED"
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_event_detail_unknown_id_returns_404() -> None:
+    with TestClient(app) as client:
+        response = client.get(f"/api/v1/events/{uuid.uuid4()}")
+    assert response.status_code == 404
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_graph_mermaid_returns_node_topology() -> None:
+    with TestClient(app) as client:
+        response = client.get("/api/v1/graph/mermaid")
+    assert response.status_code == 200
+    mermaid = response.json()["mermaid"]
+    assert "expert_judge" in mermaid
+    assert "send_dingtalk" in mermaid

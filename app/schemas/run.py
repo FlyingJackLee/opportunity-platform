@@ -1,7 +1,25 @@
+import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+
+class RunSummary(BaseModel):
+    """Lightweight per-run row for an event's run history -- the full
+    values/push payload stays on GET /runs/{run_id} (RunStatusResponse
+    below), fetched only when a specific run is opened."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    status: str
+    score: float | None
+    level: str | None
+    confidence: float | None
+    error: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
 
 
 class PushSummary(BaseModel):

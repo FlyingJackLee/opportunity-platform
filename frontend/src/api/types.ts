@@ -1,3 +1,53 @@
+export interface EventItem {
+  id: string;
+  external_id: string | null;
+  title: string;
+  content: string;
+  source_type: string;
+  source_name: string | null;
+  source_url: string | null;
+  published_at: string | null;
+  collected_at: string | null;
+  region: string | null;
+  industry: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RunSummary {
+  id: string;
+  status: string;
+  score: number | null;
+  level: string | null;
+  confidence: number | null;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface EventDetail extends EventItem {
+  runs: RunSummary[];
+}
+
+export interface PushSummary {
+  department_id: string;
+  organization_id: string;
+  recipient_type: string;
+  recipient_id: string | null;
+  status: string;
+  sent_at: string | null;
+  error: string | null;
+}
+
+export interface RunStatusResponse {
+  run_id: string;
+  status: string;
+  values: Record<string, unknown> | null;
+  error: string | null;
+  push: PushSummary[] | null;
+}
+
 export interface Organization {
   id: string;
   name: string;

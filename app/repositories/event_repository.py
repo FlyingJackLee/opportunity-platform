@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event, EventStatus, compute_content_hash
@@ -76,6 +76,11 @@ async def create_collected_event(
 
 async def get_event(session: AsyncSession, event_id: uuid.UUID) -> Event | None:
     return await session.get(Event, event_id)
+
+
+async def list_events(session: AsyncSession, limit: int = 200) -> list[Event]:
+    stmt = select(Event).order_by(Event.created_at.desc()).limit(limit)
+    return list((await session.execute(stmt)).scalars().all())
 
 
 async def set_event_status(

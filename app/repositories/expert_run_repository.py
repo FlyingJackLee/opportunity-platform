@@ -76,3 +76,12 @@ async def get_latest_run_for_event(
         .limit(1)
     )
     return (await session.execute(stmt)).scalars().first()
+
+
+async def list_runs_for_event(session: AsyncSession, event_id: uuid.UUID) -> list[ExpertRun]:
+    stmt = (
+        select(ExpertRun)
+        .where(ExpertRun.event_id == event_id)
+        .order_by(ExpertRun.started_at.desc())
+    )
+    return list((await session.execute(stmt)).scalars().all())

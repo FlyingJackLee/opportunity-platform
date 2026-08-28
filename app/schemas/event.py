@@ -4,6 +4,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.core.vocabulary import Industry, Region
+from app.schemas.run import RunSummary
 
 
 class EventCreate(BaseModel):
@@ -47,6 +48,14 @@ class EventRead(BaseModel):
     status: str
     created_at: datetime
     updated_at: datetime
+
+
+class EventDetail(EventRead):
+    """EventRead + its run history, for the admin monitoring page. Each run's
+    full result/push detail is a separate GET /runs/{run_id} call (see
+    RunSummary's docstring)."""
+
+    runs: list[RunSummary]
 
 
 class EventCreateResponse(BaseModel):
