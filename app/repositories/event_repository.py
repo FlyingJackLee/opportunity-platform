@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import Event, EventStatus, compute_content_hash
@@ -84,3 +85,28 @@ async def set_event_status(
     if event is not None:
         event.status = status
         await session.commit()
+
+
+async def mark_pushed(session: AsyncSession, event_id: uuid.UUID) -> None:
+    """Unconditional: PUSHED, once written by any department branch, must
+    never be overwritten back to ARCHIVED by a sibling branch that didn't
+    push (archive.py is a per-branch node, not a synchronized join -- see
+    the Phase 4 plan's corrected graph design)."""
+    await session.execute(
+        text("UPDATE event SET status = :status WHERE id = :id"),
+        {"status": EventStatus.PUSHED, "id": event_id},
+    )
+    await session.commit()
+
+
+async def mark_archived_unless_pushed(
+    session: AsyncSession, event_id: uuid.UUID
+) -> None:
+    """Only downgrades to ARCHIVED if no sibling branch already got this
+    Event to PUSHED -- order-independent, no coordination between the
+    per-branch archive invocations required."""
+    await session.execute(
+        text("UPDATE event SET status = :status WHERE id = :id AND status != :pushed"),
+        {"status": EventStatus.ARCHIVED, "id": event_id, "pushed": EventStatus.PUSHED},
+    )
+    await session.commit()

@@ -19,3 +19,15 @@ async def organization_exists(session: AsyncSession, organization_id: str) -> bo
         return False
     stmt = select(Organization.id).where(Organization.id == org_uuid)
     return (await session.execute(stmt)).scalar_one_or_none() is not None
+
+
+async def get_by_id(session: AsyncSession, organization_id: str) -> Organization | None:
+    """Tolerant of the UNKNOWN sentinel (ADR-0002) -- returns None rather
+    than raising, matching organization_exists's guard style."""
+    if organization_id == UNKNOWN:
+        return None
+    try:
+        org_uuid = uuid.UUID(organization_id)
+    except ValueError:
+        return None
+    return await session.get(Organization, org_uuid)

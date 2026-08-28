@@ -88,3 +88,50 @@ class OpportunityState(TypedDict):
 
     status: str
     error: str | None
+
+
+class PushBranchPayload(TypedDict):
+    """Threaded via Command(goto=Send(...)) through should_push -> resolve_owner
+    -> build_message -> send_dingtalk -> archive (Phase 4). Each hop returns
+    Command(goto=Send(next_node, {**payload, new_fields})) rather than a plain
+    dict -- Send-dispatched branches share no ambient state with each other or
+    with OpportunityState, so the full running payload must be carried
+    forward explicitly at every hop (verified empirically against the
+    installed langgraph version before committing to this shape -- see the
+    Phase 4 plan's "corrected design" section).
+
+    archive is itself Send-dispatched (like calculate_score), not a shared
+    join -- each department branch writes its own push_record independently;
+    Event.status is aggregated via a conditional SQL UPDATE, not by waiting
+    for sibling branches in graph state. This is why OpportunityState itself
+    needs no new field for Phase 4: nothing downstream of the graph reads
+    push outcomes from checkpointed state, only from the push_record table.
+    """
+
+    run_id: str
+    event_id: str
+    event_title: str
+    event_source_url: str | None
+    summary: str
+    risks: list[str]
+    recommended_action: str
+
+    department_id: str
+    organization_id: str
+    role: str
+    score: float
+    level: str
+    confidence: float
+    related_needs: list[dict]
+    related_capabilities: list[dict]
+
+    should_push: bool
+    skip_reason: str | None
+    owner: (
+        dict | None
+    )  # {"id": str, "owner_name": str, "dingtalk_user_id": str | None, "recipient_type": str}
+    message: str | None
+    recipient_type: str | None
+    recipient_id: str | None
+    push_result: dict | None
+    error: str | None

@@ -84,18 +84,21 @@ def _test_database() -> None:
 async def db_session():
     """Direct DB access for assertions -- independent of the app's own engine
     (built fresh per-app in main.py's lifespan). Truncates the per-run tables
-    (`event`, `expert_run`) before each test for isolation -- simpler than
-    nested-transaction sharing given the app manages its own connection pool,
-    separate from this fixture's. Reference data (organization/department/
-    knowledge_chunk/capability/prompt_template/score_config) is seeded once
-    per session and left alone -- it's shared, static fixture data."""
+    (`event`, `expert_run`, `push_record`) before each test for isolation --
+    simpler than nested-transaction sharing given the app manages its own
+    connection pool, separate from this fixture's. Reference data
+    (organization/department/knowledge_chunk/capability/prompt_template/
+    score_config/customer_owner/collector_source) is seeded once per session
+    and left alone -- it's shared, static fixture data."""
     engine = create_async_engine(get_settings().database_url)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
         from sqlalchemy import text
 
         await conn.execute(
-            text("TRUNCATE TABLE event, expert_run RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE TABLE event, expert_run, push_record RESTART IDENTITY CASCADE"
+            )
         )
     async with session_factory() as session:
         yield session

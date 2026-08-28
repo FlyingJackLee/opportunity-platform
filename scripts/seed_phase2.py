@@ -26,6 +26,8 @@ from app.core.seed_keys import (
     ORG_FAGAI_WEI,
     ORG_GUOZI_WEI,
     ORG_ZHUJIAN_WEI,
+    OWNER_ZHUJIANWEI_KEJI_DEPT,
+    OWNER_ZHUJIANWEI_ORG,
 )
 from app.knowledge.ingestion import (
     ingest_capability,
@@ -33,6 +35,7 @@ from app.knowledge.ingestion import (
 )
 from app.llm.gateway import LLMGateway
 from app.llm.providers.stub import StubLLMGateway
+from app.models.customer_owner import CustomerOwner
 from app.models.department import Department
 from app.models.organization import Organization
 from app.models.prompt_template import PromptTemplate
@@ -237,6 +240,54 @@ async def _seed_organizations_and_departments(session: AsyncSession) -> None:
     await session.commit()
 
 
+# (natural_key, org_key, dept_key_or_None, owner_name, owner_user_id, dingtalk_user_id)
+# ORG_FAGAI_WEI/ORG_GUOZI_WEI deliberately get no Customer Owner at all --
+# that's the fixture proving the fallback-to-public-group path (Phase 4 plan
+# §6), reusing organizations Phase 2 already seeded rather than inventing
+# unrelated test data.
+CUSTOMER_OWNERS = [
+    (
+        OWNER_ZHUJIANWEI_ORG,
+        ORG_ZHUJIAN_WEI,
+        None,
+        "张三",
+        "zhangsan",
+        "zhangsan_dingtalk",
+    ),
+    (
+        OWNER_ZHUJIANWEI_KEJI_DEPT,
+        ORG_ZHUJIAN_WEI,
+        DEPT_KEJI_XINXI_CHU,
+        "李四",
+        "lisi",
+        "lisi_dingtalk",
+    ),
+]
+
+
+async def _seed_customer_owners(session: AsyncSession) -> None:
+    for (
+        natural_key,
+        org_key,
+        dept_key,
+        owner_name,
+        owner_user_id,
+        dingtalk_user_id,
+    ) in CUSTOMER_OWNERS:
+        await session.merge(
+            CustomerOwner(
+                id=seed_uuid(natural_key),
+                organization_id=seed_uuid(org_key),
+                department_id=seed_uuid(dept_key) if dept_key else None,
+                owner_name=owner_name,
+                owner_user_id=owner_user_id,
+                dingtalk_user_id=dingtalk_user_id,
+                enabled=True,
+            )
+        )
+    await session.commit()
+
+
 async def _seed_industry_knowledge(session: AsyncSession, gateway: LLMGateway) -> None:
     for natural_key, title, content, topic in INDUSTRY_KNOWLEDGE:
         await ingest_knowledge_chunk(
@@ -297,6 +348,7 @@ async def _seed_score_config(session: AsyncSession) -> None:
 
 async def seed_all(session: AsyncSession, gateway: LLMGateway) -> None:
     await _seed_organizations_and_departments(session)
+    await _seed_customer_owners(session)
     await _seed_industry_knowledge(session, gateway)
     await _seed_capabilities(session, gateway)
     await _seed_prompt_templates(session)

@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.delivery.recording import RecordingDeliveryChannel
 from app.graph.checkpoint import checkpointer_context, setup_checkpointer
 from app.graph.graph import build_graph
 from app.llm.providers.stub import StubLLMGateway
@@ -28,7 +29,13 @@ async def test_graph_runs_full_chain_and_persists_each_node_as_a_checkpoint(
     settings = get_settings()
     async with checkpointer_context(settings) as checkpointer:
         await setup_checkpointer(checkpointer)
-        graph = build_graph(StubLLMGateway(), checkpointer, session_factory)
+        graph = build_graph(
+            StubLLMGateway(),
+            checkpointer,
+            session_factory,
+            RecordingDeliveryChannel(),
+            settings,
+        )
 
         run_id = str(uuid.uuid4())
         config = {"configurable": {"thread_id": run_id}}

@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.delivery.recording import RecordingDeliveryChannel
 from app.graph.checkpoint import checkpointer_context, setup_checkpointer
 from app.graph.graph import build_graph
 from app.llm.providers.stub import StubLLMGateway
@@ -38,7 +39,13 @@ async def test_multi_department_fanout_scores_independently(
     settings = get_settings()
     async with checkpointer_context(settings) as checkpointer:
         await setup_checkpointer(checkpointer)
-        graph = build_graph(StubLLMGateway(), checkpointer, session_factory)
+        graph = build_graph(
+            StubLLMGateway(),
+            checkpointer,
+            session_factory,
+            RecordingDeliveryChannel(),
+            settings,
+        )
 
         run_id = str(uuid.uuid4())
         final_state = await graph.ainvoke(
@@ -98,7 +105,9 @@ async def test_sentinel_branch_when_no_departments_identified(
     settings = get_settings()
     async with checkpointer_context(settings) as checkpointer:
         await setup_checkpointer(checkpointer)
-        graph = build_graph(gateway, checkpointer, session_factory)
+        graph = build_graph(
+            gateway, checkpointer, session_factory, RecordingDeliveryChannel(), settings
+        )
 
         run_id = str(uuid.uuid4())
         final_state = await graph.ainvoke(

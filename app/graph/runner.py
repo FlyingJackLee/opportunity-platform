@@ -15,8 +15,14 @@ logger = structlog.get_logger()
 def event_to_graph_input(event: Event) -> dict[str, Any]:
     """Shared by app/api/events.py's manual trigger and
     app/collector/scheduler.py's auto-trigger, so both build graph input
-    identically."""
-    return {"id": str(event.id), "title": event.title, "content": event.content}
+    identically. source_url is included for Phase 4's build_message node
+    (spec §65's "原始信息/查看原文" link)."""
+    return {
+        "id": str(event.id),
+        "title": event.title,
+        "content": event.content,
+        "source_url": event.source_url,
+    }
 
 
 async def run_graph(

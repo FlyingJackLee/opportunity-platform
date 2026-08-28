@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.models import (  # noqa: F401
     capability,
     collector_source,
+    customer_owner,
     department,
     event,
     event_filter_rule,
@@ -16,6 +17,7 @@ from app.models import (  # noqa: F401
     knowledge,
     organization,
     prompt_template,
+    push_record,
     score_config,
 )
 from app.models.base import Base

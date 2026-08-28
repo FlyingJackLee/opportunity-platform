@@ -41,3 +41,7 @@ _Avoid_: 假设两个 `source_type` 是同一套枚举，或者试图从 `collec
 **Score Level**：
 `FinalResult` 中每个 Department 各自的分档：`A(≥80) / B(65~79) / C(50~64) / WATCH(<50)`，由 Code 针对该部门单独按加权总分（§47 评分模型）计算——`Organization Match`/`Department Match` 用该部门自身的匹配置信度，`Need Clarity`/`Company Capability` 用挂在该部门下的 related Needs/related Capabilities，`Event Relevance`/`Project Signal`/`Procurement Signal` 全部门共用同一个 event 级别的值。驱动**该部门自己**的 `should_push` 决策；`expert_run`/`FinalResult` 顶层保留的 score/level（连同 confidence）是所有部门里分数最高那一个的完整三元组，仅用于列表排序展示。
 _Avoid_: 不要与 Need Maturity 混淆——Level 是分数分档，不代表需求发展到什么阶段；不要把顶层汇总 level 当成某个具体部门的推送依据；不要把顶层三元组理解成三个字段分别独立取最高。
+
+**`push_record.status` vs `Event.status`**：
+两个不同颗粒度的状态，容易混淆。`push_record.status`（`SENT`/`FAILED`/`SKIPPED`）是**单个部门分支**的推送结果——一个 Event 识别出几个部门就有几条 `push_record`，各自独立。`Event.status`（`PUSHED`/`ARCHIVED`等）是**整个 Event**的汇总状态——只要任意一个部门分支成功推送（`SENT`），Event 就是 `PUSHED`，即使同一个 Event 的其它部门分支是 `SKIPPED`/`FAILED` 也不影响这个结论（`PUSHED` 一旦被任一分支写上就不会被其它分支的未推送结果降级回 `ARCHIVED`）。查"这条商机有没有推送成功"要看对应那条 `push_record`，查"这个 Event 整体算不算处理完"要看 `Event.status`。
+_Avoid_: 用 `Event.status == PUSHED` 反推"这个 Event 的所有部门都推送成功了"（不成立，只要有一个成功就是 PUSHED）；用某一条 `push_record.status == SKIPPED` 反推 `Event.status` 是 `ARCHIVED`（如果同一 Event 的其它部门推送成功了，Event 仍然是 `PUSHED`）。

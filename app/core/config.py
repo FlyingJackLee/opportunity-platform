@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://api.openai.com/v1"
     embedding_dimension: int = 1536
     collector_scheduler_enabled: bool = True
+    dingtalk_webhook_url: str | None = None
+    dingtalk_webhook_secret: str | None = None
+    dingtalk_public_group_webhook_url: str | None = None
+    dingtalk_public_group_webhook_secret: str | None = None
     log_level: str = "INFO"
     app_env: Literal["local", "test", "production"] = "local"
 

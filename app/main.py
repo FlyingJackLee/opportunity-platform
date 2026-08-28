@@ -5,12 +5,14 @@ from fastapi import FastAPI
 
 from app.api.collectors import router as collectors_router
 from app.api.events import router as events_router
+from app.api.owners import router as owners_router
 from app.api.runs import router as runs_router
 from app.collector.crawler import StaticCrawler
 from app.collector.scheduler import CollectorScheduler
 from app.core.config import Settings, get_settings
 from app.core.db import make_engine, make_session_factory
 from app.core.logging import configure_logging
+from app.delivery.channel import DeliveryChannel
 from app.graph.checkpoint import checkpointer_context, setup_checkpointer
 from app.graph.graph import build_graph
 from app.llm.gateway import LLMGateway
@@ -35,6 +37,17 @@ def build_llm_gateway(settings: Settings) -> LLMGateway:
     )
 
 
+def build_delivery_channel(settings: Settings) -> DeliveryChannel:
+    if settings.dingtalk_webhook_url:
+        from app.delivery.dingtalk import DingTalkAdapter
+
+        return DingTalkAdapter()
+
+    from app.delivery.recording import RecordingDeliveryChannel
+
+    return RecordingDeliveryChannel()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -43,11 +56,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine = make_engine(settings)
     app.state.session_factory = make_session_factory(engine)
     app.state.llm_gateway = build_llm_gateway(settings)
+    app.state.delivery_channel = build_delivery_channel(settings)
 
     async with checkpointer_context(settings) as checkpointer:
         await setup_checkpointer(checkpointer)
         app.state.graph = build_graph(
-            app.state.llm_gateway, checkpointer, app.state.session_factory
+            app.state.llm_gateway,
+            checkpointer,
+            app.state.session_factory,
+            app.state.delivery_channel,
+            settings,
         )
 
         scheduler = None
@@ -73,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(events_router)
     app.include_router(runs_router)
     app.include_router(collectors_router)
+    app.include_router(owners_router)
     return app
 
 

@@ -56,12 +56,16 @@ async def test_collector_run_creates_events_analyzes_and_dedupes(
         events = list(events_result.scalars().all())
         assert len(events) == 2
 
-        analyzed = [e for e in events if e.status == "ANALYZED"]
+        # Phase 4 extends the pipeline automatically through Push -- the
+        # triggered analysis uses the default StubLLMGateway fixture (2
+        # B-level departments, both with a configured Customer Owner), so
+        # this now finishes PUSHED, not ANALYZED.
+        pushed = [e for e in events if e.status == "PUSHED"]
         filtered_out = [e for e in events if e.status == "FILTERED_OUT"]
-        assert len(analyzed) == 1
+        assert len(pushed) == 1
         assert len(filtered_out) == 1
 
-        passed_event = analyzed[0]
+        passed_event = pushed[0]
         assert passed_event.url_hash is not None
         assert passed_event.title_hash is not None
         assert passed_event.content_hash is not None

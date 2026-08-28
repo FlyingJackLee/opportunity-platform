@@ -41,9 +41,18 @@ async def test_manual_event_analyze_produces_structured_judgment(db_session) -> 
         assert result["capabilities"]
         assert result["recommended_action"]
 
+        # Phase 4 extends the pipeline automatically through Push -- the two
+        # B-level departments in the default fixture both have a configured
+        # Customer Owner (scripts/seed_phase2.py), so this now finishes
+        # PUSHED, not ANALYZED. Trace data (spec §106) is surfaced here too.
+        assert run_status["push"] is not None
+        assert len(run_status["push"]) == 2
+        assert all(p["status"] == "SENT" for p in run_status["push"])
+
+    db_session.expire_all()
     event = await get_event(db_session, uuid.UUID(event_id))
     assert event is not None
-    assert event.status == "ANALYZED"
+    assert event.status == "PUSHED"
 
 
 @pytest.mark.usefixtures("_test_database")
