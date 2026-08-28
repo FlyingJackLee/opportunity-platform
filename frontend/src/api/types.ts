@@ -15,6 +15,22 @@ export interface EventItem {
   updated_at: string;
 }
 
+export interface EventCreate {
+  title: string;
+  content: string;
+  source_type?: string;
+  source_name?: string | null;
+  source_url?: string | null;
+  region?: string | null;
+  industry?: string | null;
+}
+
+export interface EventCreateResponse {
+  event_id: string;
+  run_id: string;
+  status: string;
+}
+
 export interface RunSummary {
   id: string;
   status: string;

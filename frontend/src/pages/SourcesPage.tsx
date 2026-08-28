@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { collectorsApi } from "../api/resources";
 import { ApiError } from "../api/client";
 import type { CollectorRunResponse, CollectorSource, CollectorSourceCreate } from "../api/types";
 import { SOURCE_TYPES } from "../api/vocabulary";
 import DeleteButton from "../components/DeleteButton";
+import { useElapsedSeconds } from "../hooks/useElapsedSeconds";
 
 const EMPTY: CollectorSourceCreate = {
   name: "",
@@ -42,20 +43,10 @@ export default function SourcesPage() {
     null,
   );
   const [runningId, setRunningId] = useState<string | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  // 抓取一个源可能真的要几十秒到几分钟(触发 LLM 兜底解析时) -- 这个计时器不是在
-  // 等一个固定超时，只是让"还在跑"这件事对你可见，不然按钮变灰看着像卡死了。
-  useEffect(() => {
-    if (!runningId) return;
-    const start = Date.now();
-    const timer = setInterval(() => setElapsedSeconds(Math.round((Date.now() - start) / 1000)), 1000);
-    return () => clearInterval(timer);
-  }, [runningId]);
+  const elapsedSeconds = useElapsedSeconds(runningId !== null);
 
   function handleRun(source: CollectorSource) {
     setRunningId(source.id);
-    setElapsedSeconds(0);
     setRunResult(null);
     runMutation.mutate(source.id, {
       onSuccess: (data) => setRunResult({ name: source.name, data }),

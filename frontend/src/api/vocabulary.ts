@@ -15,3 +15,11 @@ export const ORGANIZATION_TYPES = [
   { value: "INSTITUTION", label: "事业单位" },
   { value: "OTHER", label: "其他" },
 ] as const;
+
+// Event.region/industry are validated server-side against these exact
+// values (app/core/vocabulary.py's Region/Industry StrEnums) -- a free-text
+// input would just 422. Extend both lists here in lockstep whenever a new
+// value is added there.
+export const REGIONS = ["重庆市"] as const;
+
+export const INDUSTRIES = ["住建", "发改", "经信", "数据", "国资"] as const;
