@@ -33,10 +33,15 @@ export function createResourceHooks<TRead, TCreate, TUpdate>(
     });
   }
 
-  function useAction(action: string) {
+  // TResult defaults to TRead (enable/disable/activate/deactivate all return
+  // the resource) but collector_source's "run" action returns a
+  // CollectorRunResponse instead -- callers pass it explicitly there
+  // (collectorsApi.useAction<CollectorRunResponse>("run")).
+  function useAction<TResult = TRead>(action: string) {
     const queryClient = useQueryClient();
     return useMutation({
-      mutationFn: (id: string) => apiFetch<TRead>(`${basePath}/${id}/${action}`, { method: "POST" }),
+      mutationFn: (id: string) =>
+        apiFetch<TResult>(`${basePath}/${id}/${action}`, { method: "POST" }),
       onSuccess: () => queryClient.invalidateQueries({ queryKey: [resourceKey] }),
     });
   }
