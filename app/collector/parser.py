@@ -6,7 +6,17 @@ Kept as the single file spec §95's dev tree shows (not a `parsers/`
 subpackage) -- Phase 3 only needs one concrete parser type (GOV_GENERIC) for
 a handful of similarly-shaped sources. Split into a subpackage once a second,
 meaningfully different site structure actually shows up; this is a
-deliberate, revisitable choice, not an oversight."""
+deliberate, revisitable choice, not an oversight.
+
+CSS-selector extraction (GOV_GENERIC) stays the first, free, deterministic
+attempt. Real-world sites (verified against 13 government + 4 news sources
+while onboarding real collector_source rows) vary enough in HTML structure
+that CSS-only coverage is poor -- an LLM fallback (_llm_list_links/
+_llm_detail) kicks in only when the CSS attempt yields nothing, mirroring
+the Filter module's own cheap-first/LLM-second layering
+(app/collector/filter.py). It cannot help when the content genuinely isn't
+in the fetched HTML (JS-rendered pages) -- that's a Crawler-level gap
+(see app/collector/crawler.py's Crawler Protocol), not a parsing one."""
 
 import re
 from collections.abc import Callable
@@ -17,6 +27,7 @@ from pydantic import BaseModel
 
 from app.collector.crawler import RawDocument
 from app.core.exceptions import ParseError
+from app.llm.gateway import LLMGateway
 
 _DATE_PATTERNS = [
     (
@@ -29,6 +40,8 @@ _DATE_PATTERNS = [
     ),
 ]
 
+_LLM_HTML_MAX_CHARS = 40_000
+
 
 class ParsedContent(BaseModel):
     title: str
@@ -37,6 +50,34 @@ class ParsedContent(BaseModel):
     source: str | None
     url: str
     attachments: list[str]
+
+
+class LLMFallbackBudget:
+    """Caps LLM parse-fallback calls per collection cycle (shared across one
+    run_collection_cycle call, see app/collector/scheduler.py). A source
+    whose CSS extraction never matches would otherwise retry the LLM path
+    for every item on every scheduled run forever -- silently spending money
+    on a source that needs an operator's attention (wrong parser_type, needs
+    a JS-rendering crawler, dead URL), not infinite retries."""
+
+    def __init__(self, max_calls: int) -> None:
+        self.remaining = max_calls
+
+    def consume(self) -> bool:
+        if self.remaining <= 0:
+            return False
+        self.remaining -= 1
+        return True
+
+
+class _ExtractedLinks(BaseModel):
+    links: list[str]
+
+
+class _ExtractedArticle(BaseModel):
+    title: str
+    content: str
+    published_at: str = ""
 
 
 def _parse_date(text: str) -> datetime | None:
@@ -51,11 +92,27 @@ def _parse_date(text: str) -> datetime | None:
     return None
 
 
+def _clean_html_for_llm(html: str, *, max_chars: int = _LLM_HTML_MAX_CHARS) -> str:
+    """Strips script/style noise (the bulk of most CMS pages' byte weight)
+    before handing HTML to the LLM -- keeps prompts smaller/cheaper without
+    losing the tag structure the model needs (hrefs, headings)."""
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup(["script", "style", "noscript", "svg"]):
+        tag.decompose()
+    return str(soup)[:max_chars]
+
+
 def _gov_generic_list_links(html: str, base_url: str) -> list[str]:
     from urllib.parse import urljoin
 
     soup = BeautifulSoup(html, "html.parser")
-    container = soup.select_one(".article-list") or soup
+    container = soup.select_one(".article-list")
+    if container is None:
+        # No silent whole-page fallback: that used to scoop up nav/breadcrumb
+        # links (real failure mode hit onboarding mohurd.gov.cn) instead of
+        # actual article links. An empty result here is what triggers the
+        # LLM fallback in extract_list_links below.
+        return []
     links = []
     for anchor in container.find_all("a", href=True):
         href = anchor["href"].strip()
@@ -65,7 +122,7 @@ def _gov_generic_list_links(html: str, base_url: str) -> list[str]:
     return links
 
 
-def _gov_generic_detail(raw: RawDocument, source_name: str) -> ParsedContent:
+def _gov_generic_detail(raw: RawDocument, source_name: str) -> ParsedContent | None:
     soup = BeautifulSoup(raw.html, "html.parser")
 
     title_el = soup.select_one("h1") or soup.select_one("title")
@@ -75,7 +132,7 @@ def _gov_generic_detail(raw: RawDocument, source_name: str) -> ParsedContent:
     content = content_el.get_text(" ", strip=True) if content_el else ""
 
     if not title or not content:
-        raise ParseError(f"could not extract title/content from {raw.url}")
+        return None
 
     date_el = soup.select_one(".date")
     published_at = (
@@ -98,20 +155,81 @@ def _gov_generic_detail(raw: RawDocument, source_name: str) -> ParsedContent:
     )
 
 
+async def _llm_list_links(html: str, base_url: str, gateway: LLMGateway) -> list[str]:
+    from urllib.parse import urljoin
+
+    cleaned = _clean_html_for_llm(html)
+    prompt = (
+        "这是一个政府/媒体网站的公告或新闻列表页的 HTML。找出页面里指向具体一篇公告/新闻"
+        "详情页的链接（不是导航栏、面包屑、页眉页脚、友情链接这些站点通用链接）。"
+        "href 可以是相对路径。\n\n"
+        f"{cleaned}"
+    )
+    result = await gateway.structured_generate(
+        task_type="PARSE_LIST_LINKS", prompt=prompt, schema=_ExtractedLinks
+    )
+    return [urljoin(base_url, href) for href in result.data.links if href.strip()]
+
+
+async def _llm_detail(raw: RawDocument, source_name: str, gateway: LLMGateway) -> ParsedContent | None:
+    cleaned = _clean_html_for_llm(raw.html)
+    prompt = (
+        "这是一篇公告/新闻详情页的 HTML。提取它的标题、正文（去掉导航/广告/相关推荐等"
+        "无关内容，只要正文本身）、发布日期（找不到就留空）。\n\n"
+        f"{cleaned}"
+    )
+    result = await gateway.structured_generate(
+        task_type="PARSE_DETAIL", prompt=prompt, schema=_ExtractedArticle
+    )
+    article = result.data
+    if not article.title or not article.content:
+        return None
+    return ParsedContent(
+        title=article.title,
+        content=article.content,
+        published_at=_parse_date(article.published_at) if article.published_at else None,
+        source=source_name,
+        url=raw.url,
+        attachments=[],
+    )
+
+
 PARSER_REGISTRY: dict[str, tuple[Callable, Callable]] = {
     "GOV_GENERIC": (_gov_generic_list_links, _gov_generic_detail),
 }
 
 
-def extract_list_links(html: str, base_url: str, parser_type: str) -> list[str]:
+async def extract_list_links(
+    html: str,
+    base_url: str,
+    parser_type: str,
+    *,
+    gateway: LLMGateway | None = None,
+    budget: LLMFallbackBudget | None = None,
+) -> list[str]:
     if parser_type not in PARSER_REGISTRY:
         raise ParseError(f"unknown parser_type={parser_type}")
     list_fn, _ = PARSER_REGISTRY[parser_type]
-    return list_fn(html, base_url)
+    links = list_fn(html, base_url)
+    if links or gateway is None or budget is None or not budget.consume():
+        return links
+    return await _llm_list_links(html, base_url, gateway)
 
 
-def parse_detail(raw: RawDocument, parser_type: str, source_name: str) -> ParsedContent:
+async def parse_detail(
+    raw: RawDocument,
+    parser_type: str,
+    source_name: str,
+    *,
+    gateway: LLMGateway | None = None,
+    budget: LLMFallbackBudget | None = None,
+) -> ParsedContent:
     if parser_type not in PARSER_REGISTRY:
         raise ParseError(f"unknown parser_type={parser_type}")
     _, detail_fn = PARSER_REGISTRY[parser_type]
-    return detail_fn(raw, source_name)
+    parsed = detail_fn(raw, source_name)
+    if parsed is None and gateway is not None and budget is not None and budget.consume():
+        parsed = await _llm_detail(raw, source_name, gateway)
+    if parsed is None:
+        raise ParseError(f"could not extract title/content from {raw.url}")
+    return parsed

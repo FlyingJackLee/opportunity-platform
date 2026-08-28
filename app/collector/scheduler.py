@@ -16,9 +16,9 @@ from langgraph.graph.state import CompiledStateGraph
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.collector.crawler import Crawler
-from app.collector.dedup import find_duplicate
+from app.collector.dedup import find_duplicate, url_already_collected
 from app.collector.filter import llm_relevance_filter, rule_filter
-from app.collector.parser import extract_list_links, parse_detail
+from app.collector.parser import LLMFallbackBudget, extract_list_links, parse_detail
 from app.core.exceptions import CollectError, LLMError, ParseError
 from app.core.vocabulary import Industry, Region
 from app.graph.runner import event_to_graph_input, run_graph
@@ -34,6 +34,11 @@ from app.repositories import collector_source_repository, event_repository
 from app.repositories.filter_rule_repository import get_filter_rules
 
 logger = structlog.get_logger()
+
+# Caps parser.py's LLM extraction fallback per cycle (shared across the list
+# page + every detail page in one run_collection_cycle call) -- see
+# LLMFallbackBudget's docstring for why this isn't unbounded.
+MAX_LLM_PARSE_FALLBACKS_PER_CYCLE = 5
 
 # Tasks fired via asyncio.create_task() must be referenced somewhere until
 # they complete, or the event loop may garbage-collect them mid-flight -- a
@@ -119,10 +124,23 @@ async def run_collection_cycle(
         source.industry_tags[0] if source.industry_tags else None, Industry
     )
 
+    llm_fallback_budget = LLMFallbackBudget(MAX_LLM_PARSE_FALLBACKS_PER_CYCLE)
+
     try:
         list_doc = await crawler.fetch(source.list_url)
-        links = extract_list_links(
-            list_doc.html, source.base_url or source.list_url, source.parser_type
+        links = await extract_list_links(
+            list_doc.html,
+            # Relative hrefs on the list page resolve against the list
+            # page's own URL, not the site's base_url (domain root) --
+            # confirmed as a real bug onboarding 重庆市住建委: a relative
+            # "./202512/xxx.html" needs the list page's full directory
+            # (.../zwxx_166/gsgg/), which base_url (just the domain) drops,
+            # producing 10/10 404s. base_url is metadata, not a link-
+            # resolution base.
+            source.list_url,
+            source.parser_type,
+            gateway=llm_gateway,
+            budget=llm_fallback_budget,
         )
     except (CollectError, ParseError) as exc:
         summary.errors.append(str(exc))
@@ -135,9 +153,28 @@ async def run_collection_cycle(
 
     for url in links:
         summary.fetched += 1
+
+        # Cheap url_hash-only pre-check (app/collector/dedup.py) -- skips the
+        # fetch+parse entirely for items already collected on a prior cycle,
+        # rather than re-fetching/re-parsing (and, now that parsing can fall
+        # back to an LLM call, potentially re-billing) every item on the
+        # list page every single run.
+        if await url_already_collected(session, url):
+            summary.deduped += 1
+            logger.info(
+                "collector_item_deduped_by_url", source_id=summary.source_id, url=url
+            )
+            continue
+
         try:
             raw = await crawler.fetch(url)
-            parsed = parse_detail(raw, source.parser_type, source.name)
+            parsed = await parse_detail(
+                raw,
+                source.parser_type,
+                source.name,
+                gateway=llm_gateway,
+                budget=llm_fallback_budget,
+            )
         except (CollectError, ParseError) as exc:
             summary.errors.append(str(exc))
             logger.error(
