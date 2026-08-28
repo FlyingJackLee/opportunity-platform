@@ -2,6 +2,7 @@ import { useState } from "react";
 import { collectorsApi } from "../api/resources";
 import { ApiError } from "../api/client";
 import type { CollectorSource, CollectorSourceCreate } from "../api/types";
+import { SOURCE_TYPES } from "../api/vocabulary";
 
 const EMPTY: CollectorSourceCreate = {
   name: "",
@@ -99,7 +100,7 @@ export default function SourcesPage() {
           {sources?.map((s) => (
             <tr key={s.id}>
               <td>{s.name}</td>
-              <td>{s.source_type}</td>
+              <td>{SOURCE_TYPES.find((t) => t.value === s.source_type)?.label ?? s.source_type}</td>
               <td style={{ maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis" }}>
                 {s.list_url}
               </td>
@@ -147,12 +148,18 @@ export default function SourcesPage() {
             />
           </label>
           <label>
-            source_type(站点分类,如 GOV_WEB)
-            <input
+            站点类型
+            <select
               required
               value={form.source_type}
               onChange={(e) => setForm({ ...form, source_type: e.target.value })}
-            />
+            >
+              {SOURCE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             列表页 URL

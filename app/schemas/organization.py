@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.core.vocabulary import OrganizationType
 
 
 class OrganizationRead(BaseModel):
@@ -30,6 +32,13 @@ class OrganizationCreate(BaseModel):
     source_url: str | None = None
     status: str = "ACTIVE"
 
+    @field_validator("organization_type")
+    @classmethod
+    def organization_type_in_vocabulary(cls, v: str | None) -> str | None:
+        if v is not None and v not in OrganizationType:
+            raise ValueError(f"'{v}' is not in the controlled OrganizationType vocabulary")
+        return v
+
 
 class OrganizationUpdate(BaseModel):
     name: str | None = None
@@ -39,3 +48,10 @@ class OrganizationUpdate(BaseModel):
     parent_id: uuid.UUID | None = None
     description: str | None = None
     source_url: str | None = None
+
+    @field_validator("organization_type")
+    @classmethod
+    def organization_type_in_vocabulary(cls, v: str | None) -> str | None:
+        if v is not None and v not in OrganizationType:
+            raise ValueError(f"'{v}' is not in the controlled OrganizationType vocabulary")
+        return v

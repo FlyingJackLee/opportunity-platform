@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.core.vocabulary import SourceType
 
 
 class CollectorSourceRead(BaseModel):
@@ -34,6 +36,13 @@ class CollectorSourceCreate(BaseModel):
     region_tags: list[str] | None = None
     priority: int = 0
 
+    @field_validator("source_type")
+    @classmethod
+    def source_type_in_vocabulary(cls, v: str) -> str:
+        if v not in SourceType:
+            raise ValueError(f"'{v}' is not in the controlled SourceType vocabulary")
+        return v
+
 
 class CollectorSourceUpdate(BaseModel):
     name: str | None = None
@@ -45,6 +54,13 @@ class CollectorSourceUpdate(BaseModel):
     industry_tags: list[str] | None = None
     region_tags: list[str] | None = None
     priority: int | None = None
+
+    @field_validator("source_type")
+    @classmethod
+    def source_type_in_vocabulary(cls, v: str | None) -> str | None:
+        if v is not None and v not in SourceType:
+            raise ValueError(f"'{v}' is not in the controlled SourceType vocabulary")
+        return v
 
 
 class CollectorRunResponse(BaseModel):

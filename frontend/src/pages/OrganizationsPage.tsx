@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import { ApiError } from "../api/client";
 import { organizationsApi } from "../api/resources";
 import type { Organization, OrganizationCreate } from "../api/types";
+import { ORGANIZATION_TYPES } from "../api/vocabulary";
 import DepartmentsPanel from "./DepartmentsPanel";
 
 const EMPTY: OrganizationCreate = {
@@ -91,7 +92,10 @@ export default function OrganizationsPage() {
                 </td>
                 <td>{org.name}</td>
                 <td>{org.region}</td>
-                <td>{org.organization_type}</td>
+                <td>
+                  {ORGANIZATION_TYPES.find((t) => t.value === org.organization_type)?.label ??
+                    org.organization_type}
+                </td>
                 <td>
                   <span className={`status-badge ${org.status === "ACTIVE" ? "" : "inactive"}`}>
                     {org.status}
@@ -145,10 +149,17 @@ export default function OrganizationsPage() {
           </label>
           <label>
             单位类型
-            <input
+            <select
               value={form.organization_type ?? ""}
               onChange={(e) => setForm({ ...form, organization_type: e.target.value })}
-            />
+            >
+              <option value="">(未分类)</option>
+              {ORGANIZATION_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
             职责描述

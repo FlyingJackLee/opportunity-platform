@@ -19,3 +19,30 @@ class Industry(StrEnum):
 
 class Region(StrEnum):
     CHONGQING = "重庆市"
+
+
+class SourceType(StrEnum):
+    """collector_source.source_type -- spec §9's site-category vocabulary
+    (only ever gives GOV_WEB/招标网站 as examples, never an exhaustive list;
+    this set is inferred, not spec-literal, same caveat as EventType in
+    app/schemas/analysis.py). Currently descriptive only -- no node branches
+    on it (app/collector/parser_type is what's actually enum-enforced, via
+    PARSER_REGISTRY)."""
+
+    GOV_WEB = "GOV_WEB"
+    TENDER_SITE = "TENDER_SITE"
+    NEWS_SITE = "NEWS_SITE"
+    OTHER = "OTHER"
+
+
+class OrganizationType(StrEnum):
+    """organization.organization_type -- not given any example values in
+    spec at all; this set is inferred. Descriptive only, like SourceType --
+    no retrieval/scoring logic branches on it (see
+    app/knowledge/retriever.py's search_organization_candidates, which
+    filters candidates by region only)."""
+
+    GOV = "GOV"
+    SOE = "SOE"
+    INSTITUTION = "INSTITUTION"
+    OTHER = "OTHER"
