@@ -35,6 +35,26 @@ async def test_organization_crud() -> None:
         )
         assert deactivate_response.json()["status"] == "INACTIVE"
 
+        delete_response = client.delete(f"/api/v1/organizations/{org['id']}")
+        assert delete_response.status_code == 204
+        assert client.get(f"/api/v1/organizations/{org['id']}").status_code == 404
+
+
+@pytest.mark.usefixtures("_test_database")
+async def test_organization_delete_blocked_while_department_exists() -> None:
+    with TestClient(app) as client:
+        org = client.post(
+            "/api/v1/organizations", json={"name": f"测试单位-{uuid.uuid4().hex[:8]}"}
+        ).json()
+        client.post(
+            "/api/v1/departments", json={"organization_id": org["id"], "name": "测试处室"}
+        )
+
+        response = client.delete(f"/api/v1/organizations/{org['id']}")
+        assert response.status_code == 409
+        # not actually deleted
+        assert client.get(f"/api/v1/organizations/{org['id']}").status_code == 200
+
 
 @pytest.mark.usefixtures("_test_database")
 async def test_department_crud_filters_by_organization() -> None:
@@ -58,6 +78,33 @@ async def test_department_crud_filters_by_organization() -> None:
 
         deactivate_response = client.post(f"/api/v1/departments/{dept['id']}/deactivate")
         assert deactivate_response.json()["status"] == "INACTIVE"
+
+        delete_response = client.delete(f"/api/v1/departments/{dept['id']}")
+        assert delete_response.status_code == 204
+        assert client.get(f"/api/v1/departments/{dept['id']}").status_code == 404
+
+
+@pytest.mark.usefixtures("_test_database")
+async def test_department_delete_blocked_while_customer_owner_exists() -> None:
+    with TestClient(app) as client:
+        org = client.post(
+            "/api/v1/organizations", json={"name": f"测试单位-{uuid.uuid4().hex[:8]}"}
+        ).json()
+        dept = client.post(
+            "/api/v1/departments", json={"organization_id": org["id"], "name": "测试处室"}
+        ).json()
+        client.post(
+            "/api/v1/customer-owners",
+            json={
+                "organization_id": org["id"],
+                "department_id": dept["id"],
+                "owner_name": "张三",
+            },
+        )
+
+        response = client.delete(f"/api/v1/departments/{dept['id']}")
+        assert response.status_code == 409
+        assert client.get(f"/api/v1/departments/{dept['id']}").status_code == 200
 
 
 @pytest.mark.usefixtures("_test_database")
@@ -88,6 +135,10 @@ async def test_knowledge_chunk_crud_computes_embedding_and_updates() -> None:
         )
         assert deactivate_response.json()["status"] == "INACTIVE"
 
+        delete_response = client.delete(f"/api/v1/knowledge-chunks/{chunk['id']}")
+        assert delete_response.status_code == 204
+        assert client.get(f"/api/v1/knowledge-chunks/{chunk['id']}").status_code == 404
+
 
 @pytest.mark.usefixtures("_test_database")
 async def test_capability_crud_computes_embedding_and_updates() -> None:
@@ -106,6 +157,10 @@ async def test_capability_crud_computes_embedding_and_updates() -> None:
         )
         assert update_response.json()["description"] == "新描述"
         assert update_response.json()["scenarios"] == ["场景A"]
+
+        delete_response = client.delete(f"/api/v1/capabilities/{capability['id']}")
+        assert delete_response.status_code == 204
+        assert client.get(f"/api/v1/capabilities/{capability['id']}").status_code == 404
 
 
 @pytest.mark.usefixtures("_test_database")
@@ -137,6 +192,9 @@ async def test_collector_source_crud() -> None:
         disable_response = client.post(f"/api/v1/collectors/{source['id']}/disable")
         assert disable_response.json()["enabled"] is False
 
+        delete_response = client.delete(f"/api/v1/collectors/{source['id']}")
+        assert delete_response.status_code == 204
+
 
 @pytest.mark.usefixtures("_test_database")
 async def test_customer_owner_update_and_disable() -> None:
@@ -157,3 +215,9 @@ async def test_customer_owner_update_and_disable() -> None:
 
         disable_response = client.post(f"/api/v1/customer-owners/{owner['id']}/disable")
         assert disable_response.json()["enabled"] is False
+
+        delete_response = client.delete(f"/api/v1/customer-owners/{owner['id']}")
+        assert delete_response.status_code == 204
+        assert owner["id"] not in [
+            o["id"] for o in client.get("/api/v1/customer-owners").json()
+        ]

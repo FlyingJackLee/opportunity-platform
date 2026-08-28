@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { capabilitiesApi } from "../api/resources";
 import type { Capability, CapabilityCreate } from "../api/types";
+import DeleteButton from "../components/DeleteButton";
 
 const EMPTY: CapabilityCreate = {
   name: "",
@@ -23,6 +24,7 @@ export default function CapabilitiesPage() {
   const updateMutation = capabilitiesApi.useUpdate();
   const activateMutation = capabilitiesApi.useAction("activate");
   const deactivateMutation = capabilitiesApi.useAction("deactivate");
+  const deleteMutation = capabilitiesApi.useDelete();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CapabilityCreate>(EMPTY);
@@ -103,11 +105,22 @@ export default function CapabilitiesPage() {
                 ) : (
                   <button onClick={() => activateMutation.mutate(capability.id)}>启用</button>
                 )}
+                <DeleteButton
+                  label={capability.name}
+                  onDelete={() => deleteMutation.mutate(capability.id)}
+                />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
+        </div>
+      )}
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit}>

@@ -41,5 +41,13 @@ export function createResourceHooks<TRead, TCreate, TUpdate>(
     });
   }
 
-  return { useList, useCreate, useUpdate, useAction };
+  function useDelete() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn: (id: string) => apiFetch<void>(`${basePath}/${id}`, { method: "DELETE" }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: [resourceKey] }),
+    });
+  }
+
+  return { useList, useCreate, useUpdate, useAction, useDelete };
 }

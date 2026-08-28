@@ -76,3 +76,15 @@ async def set_status(
     await session.commit()
     await session.refresh(dept)
     return dept
+
+
+async def delete(session: AsyncSession, department_id: uuid.UUID) -> bool:
+    """Hard delete -- see organization_repository.delete's docstring for the
+    set_status vs delete distinction. Raises IntegrityError if a
+    customer_owner still references this department."""
+    dept = await session.get(Department, department_id)
+    if dept is None:
+        return False
+    await session.delete(dept)
+    await session.commit()
+    return True

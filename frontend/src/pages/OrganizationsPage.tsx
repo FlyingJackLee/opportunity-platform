@@ -3,6 +3,7 @@ import { ApiError } from "../api/client";
 import { organizationsApi } from "../api/resources";
 import type { Organization, OrganizationCreate } from "../api/types";
 import { ORGANIZATION_TYPES } from "../api/vocabulary";
+import DeleteButton from "../components/DeleteButton";
 import DepartmentsPanel from "./DepartmentsPanel";
 
 const EMPTY: OrganizationCreate = {
@@ -20,6 +21,7 @@ export default function OrganizationsPage() {
   const updateMutation = organizationsApi.useUpdate();
   const activateMutation = organizationsApi.useAction("activate");
   const deactivateMutation = organizationsApi.useAction("deactivate");
+  const deleteMutation = organizationsApi.useDelete();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<OrganizationCreate>(EMPTY);
@@ -108,6 +110,7 @@ export default function OrganizationsPage() {
                   ) : (
                     <button onClick={() => activateMutation.mutate(org.id)}>启用</button>
                   )}
+                  <DeleteButton label={org.name} onDelete={() => deleteMutation.mutate(org.id)} />
                 </td>
               </tr>
               {expandedId === org.id && (
@@ -121,6 +124,13 @@ export default function OrganizationsPage() {
           ))}
         </tbody>
       </table>
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
+        </div>
+      )}
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit}>

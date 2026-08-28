@@ -32,3 +32,12 @@ async def set_status(
     await session.commit()
     await session.refresh(capability)
     return capability
+
+
+async def delete(session: AsyncSession, capability_id: uuid.UUID) -> bool:
+    capability = await session.get(Capability, capability_id)
+    if capability is None:
+        return False
+    await session.delete(capability)
+    await session.commit()
+    return True

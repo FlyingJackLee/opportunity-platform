@@ -21,6 +21,13 @@ TEST_CHECKPOINT_DATABASE_URL = (
 os.environ.setdefault("DATABASE_URL", TEST_DATABASE_URL)
 os.environ.setdefault("CHECKPOINT_DATABASE_URL", TEST_CHECKPOINT_DATABASE_URL)
 os.environ.setdefault("LLM_PROVIDER", "stub")
+# ADR-0004: chat and embedding are independently selected. Without this, a
+# real .env with EMBEDDING_PROVIDER=openai_compatible (needed for real
+# development/testing) leaks into the test suite too -- app.state's real
+# CompositeLLMGateway would then make live network calls to whatever
+# embedding vendor is configured there, making the suite flaky/networked/
+# credential-dependent instead of hermetic.
+os.environ.setdefault("EMBEDDING_PROVIDER", "stub")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 os.environ.setdefault("APP_ENV", "test")
 # Never let background cron jobs fire nondeterministically during the test

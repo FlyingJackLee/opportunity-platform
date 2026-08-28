@@ -72,3 +72,13 @@ async def disable_customer_owner_endpoint(
     if owner is None:
         raise HTTPException(status_code=404, detail="customer owner not found")
     return CustomerOwnerRead.model_validate(owner)
+
+
+@router.delete("/customer-owners/{owner_id}", status_code=204)
+async def delete_customer_owner_endpoint(
+    owner_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    deleted = await customer_owner_repository.delete(session, owner_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="customer owner not found")

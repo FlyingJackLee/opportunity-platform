@@ -3,6 +3,7 @@ import { collectorsApi } from "../api/resources";
 import { ApiError } from "../api/client";
 import type { CollectorSource, CollectorSourceCreate } from "../api/types";
 import { SOURCE_TYPES } from "../api/vocabulary";
+import DeleteButton from "../components/DeleteButton";
 
 const EMPTY: CollectorSourceCreate = {
   name: "",
@@ -31,6 +32,7 @@ export default function SourcesPage() {
   const enableMutation = collectorsApi.useAction("enable");
   const disableMutation = collectorsApi.useAction("disable");
   const runMutation = collectorsApi.useAction("run");
+  const deleteMutation = collectorsApi.useDelete();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CollectorSourceCreate>(EMPTY);
@@ -128,6 +130,7 @@ export default function SourcesPage() {
                 >
                   立即抓取
                 </button>
+                <DeleteButton label={s.name} onDelete={() => deleteMutation.mutate(s.id)} />
               </td>
             </tr>
           ))}
@@ -135,6 +138,13 @@ export default function SourcesPage() {
       </table>
 
       {runResult && <div className="error-banner">{runResult}</div>}
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
+        </div>
+      )}
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit}>

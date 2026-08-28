@@ -25,3 +25,12 @@ async def set_status(
     await session.commit()
     await session.refresh(chunk)
     return chunk
+
+
+async def delete(session: AsyncSession, chunk_id: uuid.UUID) -> bool:
+    chunk = await session.get(KnowledgeChunk, chunk_id)
+    if chunk is None:
+        return False
+    await session.delete(chunk)
+    await session.commit()
+    return True

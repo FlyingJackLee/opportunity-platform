@@ -51,3 +51,15 @@ async def set_enabled(
     await session.commit()
     await session.refresh(source)
     return source
+
+
+async def delete(session: AsyncSession, source_id: uuid.UUID) -> bool:
+    """Raises IntegrityError if any event.collector_source_id still points
+    here -- collected events keep their provenance link, so the source can't
+    be hard-deleted out from under them."""
+    source = await session.get(CollectorSource, source_id)
+    if source is None:
+        return False
+    await session.delete(source)
+    await session.commit()
+    return True

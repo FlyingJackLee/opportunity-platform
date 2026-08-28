@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { knowledgeApi } from "../api/resources";
 import type { KnowledgeChunk, KnowledgeChunkCreate } from "../api/types";
+import DeleteButton from "../components/DeleteButton";
 
 const EMPTY: KnowledgeChunkCreate = {
   title: "",
@@ -17,6 +18,7 @@ export default function KnowledgePage() {
   const updateMutation = knowledgeApi.useUpdate();
   const activateMutation = knowledgeApi.useAction("activate");
   const deactivateMutation = knowledgeApi.useAction("deactivate");
+  const deleteMutation = knowledgeApi.useDelete();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<KnowledgeChunkCreate>(EMPTY);
@@ -98,11 +100,22 @@ export default function KnowledgePage() {
                 ) : (
                   <button onClick={() => activateMutation.mutate(chunk.id)}>启用</button>
                 )}
+                <DeleteButton
+                  label={chunk.title}
+                  onDelete={() => deleteMutation.mutate(chunk.id)}
+                />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
+        </div>
+      )}
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit}>

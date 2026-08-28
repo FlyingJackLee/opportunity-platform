@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { departmentsApi, organizationsApi, ownersApi } from "../api/resources";
 import type { CustomerOwner, CustomerOwnerCreate } from "../api/types";
+import DeleteButton from "../components/DeleteButton";
 
 const EMPTY: CustomerOwnerCreate = {
   organization_id: "",
@@ -18,6 +19,7 @@ export default function OwnersPage() {
   const updateMutation = ownersApi.useUpdate();
   const enableMutation = ownersApi.useAction("enable");
   const disableMutation = ownersApi.useAction("disable");
+  const deleteMutation = ownersApi.useDelete();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CustomerOwnerCreate>(EMPTY);
@@ -108,11 +110,22 @@ export default function OwnersPage() {
                 ) : (
                   <button onClick={() => enableMutation.mutate(owner.id)}>启用</button>
                 )}
+                <DeleteButton
+                  label={owner.owner_name}
+                  onDelete={() => deleteMutation.mutate(owner.id)}
+                />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
+        </div>
+      )}
 
       {showForm && (
         <form className="panel" onSubmit={handleSubmit}>

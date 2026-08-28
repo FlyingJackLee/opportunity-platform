@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApiError } from "../api/client";
 import { departmentsApi } from "../api/resources";
+import DeleteButton from "../components/DeleteButton";
 
 export default function DepartmentsPanel({ organizationId }: { organizationId: string }) {
   const { data: departments, isLoading } = departmentsApi.useList({
@@ -9,6 +10,7 @@ export default function DepartmentsPanel({ organizationId }: { organizationId: s
   const createMutation = departmentsApi.useCreate();
   const activateMutation = departmentsApi.useAction("activate");
   const deactivateMutation = departmentsApi.useAction("deactivate");
+  const deleteMutation = departmentsApi.useDelete();
 
   const [name, setName] = useState("");
   const [responsibility, setResponsibility] = useState("");
@@ -54,6 +56,7 @@ export default function DepartmentsPanel({ organizationId }: { organizationId: s
                 ) : (
                   <button onClick={() => activateMutation.mutate(dept.id)}>启用</button>
                 )}
+                <DeleteButton label={dept.name} onDelete={() => deleteMutation.mutate(dept.id)} />
               </td>
             </tr>
           ))}
@@ -89,6 +92,13 @@ export default function DepartmentsPanel({ organizationId }: { organizationId: s
           {createMutation.error instanceof ApiError
             ? createMutation.error.message
             : String(createMutation.error)}
+        </div>
+      )}
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
         </div>
       )}
     </div>

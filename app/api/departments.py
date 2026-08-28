@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_session
@@ -71,3 +72,19 @@ async def activate_department_endpoint(
     if dept is None:
         raise HTTPException(status_code=404, detail="department not found")
     return DepartmentRead.model_validate(dept)
+
+
+@router.delete("/{department_id}", status_code=204)
+async def delete_department_endpoint(
+    department_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    try:
+        deleted = await department_repository.delete(session, department_id)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409, detail="该部门下还有客户经理记录，请先删除它们"
+        ) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="department not found")

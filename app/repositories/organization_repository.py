@@ -76,3 +76,16 @@ async def set_status(
     await session.commit()
     await session.refresh(org)
     return org
+
+
+async def delete(session: AsyncSession, organization_id: uuid.UUID) -> bool:
+    """Hard delete -- unlike set_status, this is for clearing out junk (test
+    rows, seed data) before real use, not day-to-day lifecycle management.
+    Raises sqlalchemy.exc.IntegrityError (left to the caller/API layer to
+    translate) if department/customer_owner rows still reference this org."""
+    org = await session.get(Organization, organization_id)
+    if org is None:
+        return False
+    await session.delete(org)
+    await session.commit()
+    return True

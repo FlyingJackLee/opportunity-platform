@@ -95,3 +95,13 @@ async def activate_capability_endpoint(
     if capability is None:
         raise HTTPException(status_code=404, detail="capability not found")
     return CapabilityRead.model_validate(capability)
+
+
+@router.delete("/{capability_id}", status_code=204)
+async def delete_capability_endpoint(
+    capability_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    deleted = await capability_repository.delete(session, capability_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="capability not found")

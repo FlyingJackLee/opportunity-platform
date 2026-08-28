@@ -102,3 +102,13 @@ async def activate_knowledge_chunk_endpoint(
     if chunk is None:
         raise HTTPException(status_code=404, detail="knowledge chunk not found")
     return KnowledgeChunkRead.model_validate(chunk)
+
+
+@router.delete("/{chunk_id}", status_code=204)
+async def delete_knowledge_chunk_endpoint(
+    chunk_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    deleted = await knowledge_repository.delete(session, chunk_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="knowledge chunk not found")

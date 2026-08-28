@@ -111,3 +111,12 @@ async def set_enabled(
     await session.commit()
     await session.refresh(owner)
     return owner
+
+
+async def delete(session: AsyncSession, owner_id: uuid.UUID) -> bool:
+    owner = await session.get(CustomerOwner, owner_id)
+    if owner is None:
+        return False
+    await session.delete(owner)
+    await session.commit()
+    return True

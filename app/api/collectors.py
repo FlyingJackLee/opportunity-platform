@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.collector.crawler import StaticCrawler
@@ -108,3 +109,20 @@ async def run_collector_endpoint(
         triggered_analysis=summary.triggered_analysis,
         errors=summary.errors,
     )
+
+
+@router.delete("/collectors/{source_id}", status_code=204)
+async def delete_collector_endpoint(
+    source_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    try:
+        deleted = await collector_source_repository.delete(session, source_id)
+    except IntegrityError as exc:
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="该信息源下还有已采集的 Event 记录，无法删除（可以直接停用）",
+        ) from exc
+    if not deleted:
+        raise HTTPException(status_code=404, detail="collector source not found")
