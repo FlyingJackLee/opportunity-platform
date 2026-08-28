@@ -60,6 +60,14 @@ export function useReanalyzeEvent() {
   });
 }
 
+export function useDeleteEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (eventId: string) => apiFetch<void>(`/api/v1/events/${eventId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["events"] }),
+  });
+}
+
 export function useGraphMermaid() {
   return useQuery({
     queryKey: ["graph", "mermaid"],

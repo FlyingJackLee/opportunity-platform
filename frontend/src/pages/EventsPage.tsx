@@ -4,6 +4,7 @@ import { ApiError } from "../api/client";
 import {
   useAnalyzeEvent,
   useCreateEvent,
+  useDeleteEvent,
   useEvent,
   useEvents,
   useGraphMermaid,
@@ -12,6 +13,7 @@ import {
 } from "../api/monitoring";
 import type { EventCreate } from "../api/types";
 import { INDUSTRIES, REGIONS } from "../api/vocabulary";
+import DeleteButton from "../components/DeleteButton";
 import { useElapsedSeconds } from "../hooks/useElapsedSeconds";
 
 const EMPTY_EVENT: EventCreate = {
@@ -266,6 +268,7 @@ export default function EventsPage() {
   const { data: events, isLoading } = useEvents();
   const { data: graph } = useGraphMermaid();
   const reanalyzeMutation = useReanalyzeEvent();
+  const deleteMutation = useDeleteEvent();
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -337,13 +340,17 @@ export default function EventsPage() {
                   <span className="status-badge">{statusLabel(event.status)}</span>
                 </td>
                 <td>{event.created_at}</td>
-                <td>
+                <td className="row-actions">
                   <button
                     onClick={() => handleReanalyze(event.id)}
                     disabled={reanalyzingId !== null}
                   >
                     {reanalyzingId === event.id ? `分析中…(${reanalyzeElapsed}s)` : "重新分析"}
                   </button>
+                  <DeleteButton
+                    label={event.title}
+                    onDelete={() => deleteMutation.mutate(event.id)}
+                  />
                 </td>
               </tr>
               {expandedEventId === event.id && (
@@ -369,6 +376,13 @@ export default function EventsPage() {
           {reanalyzeMutation.error instanceof ApiError
             ? reanalyzeMutation.error.message
             : String(reanalyzeMutation.error)}
+        </div>
+      )}
+      {deleteMutation.error && (
+        <div className="error-banner">
+          {deleteMutation.error instanceof ApiError
+            ? deleteMutation.error.message
+            : String(deleteMutation.error)}
         </div>
       )}
     </div>

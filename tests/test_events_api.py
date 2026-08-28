@@ -162,3 +162,42 @@ def test_graph_mermaid_returns_node_topology() -> None:
     mermaid = response.json()["mermaid"]
     assert "expert_judge" in mermaid
     assert "send_dingtalk" in mermaid
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_create_event_duplicate_content_returns_409_not_500(db_session) -> None:
+    with TestClient(app) as client:
+        payload = {"title": "重复内容测试", "content": "这段内容会被提交两次，用来测重复检测"}
+        first = client.post("/api/v1/events", json=payload)
+        assert first.status_code == 200
+        first_id = first.json()["id"]
+
+        second = client.post("/api/v1/events", json=payload)
+        assert second.status_code == 409
+        assert first_id in second.json()["detail"]
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_delete_event_cascades_to_runs_and_push_records(db_session) -> None:
+    with TestClient(app) as client:
+        create_response = client.post(
+            "/api/v1/events",
+            json={
+                "title": "XX市发布城市生命线安全工程实施方案",
+                "content": "政策已明确提出基础设施风险监测相关建设任务，用于删除测试",
+                "region": "重庆市",
+            },
+        )
+        event_id = create_response.json()["id"]
+        client.post(f"/api/v1/events/{event_id}/analyze")
+
+        delete_response = client.delete(f"/api/v1/events/{event_id}")
+        assert delete_response.status_code == 204
+        assert client.get(f"/api/v1/events/{event_id}").status_code == 404
+
+
+@pytest.mark.usefixtures("_test_database")
+def test_delete_unknown_event_returns_404() -> None:
+    with TestClient(app) as client:
+        response = client.delete(f"/api/v1/events/{uuid.uuid4()}")
+    assert response.status_code == 404

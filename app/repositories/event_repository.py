@@ -78,9 +78,39 @@ async def get_event(session: AsyncSession, event_id: uuid.UUID) -> Event | None:
     return await session.get(Event, event_id)
 
 
+async def get_by_content_hash(session: AsyncSession, content_hash: str) -> Event | None:
+    """Used by the manual-create API to give a clean 409 (with the existing
+    event's id) instead of letting event.content_hash's unique constraint
+    (spec §13 dedup) surface as a raw IntegrityError -- see
+    app/api/events.py's create_event_endpoint."""
+    stmt = select(Event).where(Event.content_hash == content_hash)
+    return (await session.execute(stmt)).scalars().first()
+
+
 async def list_events(session: AsyncSession, limit: int = 200) -> list[Event]:
     stmt = select(Event).order_by(Event.created_at.desc()).limit(limit)
     return list((await session.execute(stmt)).scalars().all())
+
+
+async def delete(session: AsyncSession, event_id: uuid.UUID) -> bool:
+    """Hard delete, cascading to expert_run/push_record explicitly -- neither
+    FK has ON DELETE CASCADE, and unlike organization/department (which
+    block on dependents because those are independently meaningful config
+    data), an event's runs/push records are its own audit trail with no
+    standalone meaning once the event is gone, so there's nothing to
+    preserve by blocking here."""
+    event = await session.get(Event, event_id)
+    if event is None:
+        return False
+    await session.execute(
+        text("DELETE FROM push_record WHERE event_id = :id"), {"id": event_id}
+    )
+    await session.execute(
+        text("DELETE FROM expert_run WHERE event_id = :id"), {"id": event_id}
+    )
+    await session.delete(event)
+    await session.commit()
+    return True
 
 
 async def set_event_status(
